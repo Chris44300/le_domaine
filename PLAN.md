@@ -143,30 +143,40 @@ pas encore dans "Le Domaine".*
 **Objectif :** que Nigel expose ses capacités via une API HTTP locale,
 sans rien casser de ce qui marche déjà avec Telegram.
 
-- [ ] 1.1 🎓 Poser les bases FastAPI :
-  - [ ] 1.1.1 `pip install fastapi uvicorn[standard]` dans le venv existant.
-  - [ ] 1.1.2 Nouveau dossier `api/`, fichier `api/main.py` avec une
-        application FastAPI vide + une route `GET /health` (vérifie juste
-        que ça répond).
-  - [ ] 1.1.3 Lancer en local (`uvicorn api.main:app --reload`), vérifier
-        `http://localhost:8000/health` dans un navigateur. Prembattement
-        de cœur du projet.
-- [ ] 1.2 Choisir la première vraie capacité à exposer — recommandé :
-      **la recherche documentaire par nom** (`rechercher_fichier_local`,
-      déjà la fonction la plus indépendante de Telegram du projet).
-  - [ ] 1.2.1 Nouvelle route `POST /documents/search` (corps : mot-clé,
-        dossier optionnel).
-  - [ ] 1.2.2 La route appelle directement `core.fichiers.rechercher_fichier_local`
-        (aucune duplication : on appelle le code existant, on ne le
-        réécrit pas).
-  - [ ] 1.2.3 La réponse suit le contrat neutre défini en 0.4 (une liste
-        de résultats structurée, pas le texte brut `"===== RÉSULTATS..."`
-        déjà utilisé pour Telegram/terminal).
-  - [ ] 1.2.4 Test d'intégration avec `TestClient` (FastAPI fournit un
-        client de test) : vérifie le contrat JSON, pas juste "ça répond".
-- [ ] 1.3 Noter, pour cette première capacité, tout ce qui a dû être
-      contourné ou adapté à cause d'un couplage Telegram implicite —
-      matière réelle pour la suite plutôt qu'un audit théorique.
+- [x] 1.1 🎓 Poser les bases FastAPI :
+  - [x] 1.1.1 `pip install fastapi uvicorn[standard]` dans le venv existant
+        (requirements.txt mis à jour).
+  - [x] 1.1.2 Nouveau dossier `api/`, fichier `api/main.py` avec une
+        application FastAPI + une route `GET /health`.
+  - [x] 1.1.3 Lancé en local (`uvicorn api.main:app --reload`), vérifié
+        `http://localhost:8000/health` → `{"status":"ok"}`. Premier
+        battement de cœur du projet.
+- [x] 1.2 Première vraie capacité exposée : **la recherche documentaire
+      par nom** (`rechercher_fichier_local`).
+  - [x] 1.2.1 Route `POST /documents/search` (corps : `mot_cle`, `dossier`
+        optionnel) — `api/documents.py`.
+  - [x] 1.2.2 La route appelle `core.fichiers.rechercher_fichier_local_structure`
+        (nouvelle fonction, voir 1.3 — aucune logique de recherche
+        dupliquée, seul le formatage texte reste séparé de la donnée).
+  - [x] 1.2.3 La réponse suit le contrat neutre défini en 0.4
+        (`{status, blocks:[{kind:"list", items:[...]}]}`), vérifié en
+        conditions réelles contre le vrai dossier documentaire
+        (`budget` → 3 résultats structurés, plus de texte préformaté).
+  - [x] 1.2.4 Tests d'intégration `TestClient` dans
+        `tests/test_api_documents.py` (cas trouvé, vide, erreur dossier).
+        Suite complète (344 tests) toujours verte après le refactor.
+- [x] 1.3 Couplage rencontré et contourné : `rechercher_fichier_local`
+      mélangeait recherche ET formatage texte (`"===== RÉSULTATS...`,
+      préfixes emoji) dans la même fonction — pas un couplage Telegram à
+      proprement parler (le texte est aussi consommé par le terminal),
+      mais le même problème de fond que celui nommé en 0.4.1 : aucune
+      forme structurée n'existait en sortie du noyau de recherche.
+      Résolu en extrayant `rechercher_fichier_local_structure` (retourne
+      des dicts `{path, type, score}`) ; `rechercher_fichier_local`
+      devient un simple formatage texte au-dessus, comportement inchangé
+      (tests existants verts sans modification). Cette même extraction
+      servira probablement pour les capacités suivantes (résultats de
+      recherche par contenu, listing de dossier) qui ont le même problème.
 - [ ] 1.4 Répéter 1.2-1.3 pour 2-3 capacités supplémentaires, dans cet
       ordre suggéré (du plus indépendant au plus couplé) :
   - [ ] 1.4.1 Lister un dossier (`list_browser_listing` ou équivalent).
