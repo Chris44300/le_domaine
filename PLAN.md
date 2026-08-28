@@ -260,13 +260,17 @@ plutôt que cinq pièces jamais terminées.
       pas encore nécessaire. Vérifié en conditions réelles (redirection,
       mauvais jeton rejeté, bon jeton accepté et persistant). Build de
       production + lint propres.
-- [ ] 2.6 🎓 Déployer sur Vercel (répétition de ce qui a déjà été fait pour
-      Ménage) — même si l'API n'est pas encore joignable depuis internet à
-      ce stade (ça vient en Phase 5), le déploiement du SHELL peut déjà
-      être vérifié.
+- [x] 2.6 🎓 Déployé sur Vercel par Chris (import du repo GitHub,
+      Root Directory = `web`, `DOMAIN_ACCESS_TOKEN` en variable
+      d'environnement) : https://le-domaine-tau.vercel.app — vérifié en
+      conditions réelles (auth, cookie, écran d'accueil, desktop et
+      mobile). L'API n'est pas encore joignable depuis internet à ce
+      stade (normal, ça vient en Phase 5) — seule la coquille est
+      vérifiable pour l'instant, comme prévu.
 
 **Sortie de la Phase 2 :** une page web déployée, avec une tuile et une
-barre de recherche qui répond (en local pour l'instant).
+barre de recherche qui répond (en local pour l'instant). **Phase 2
+complète.**
 
 ---
 
@@ -435,3 +439,8 @@ années sans devenir un fardeau.
   pendant cette phase (voir mémoire `feedback_le_domaine_visibility` côté
   Claude) — a choisi de garder l'ordre du plan plutôt que d'avancer la
   Phase 2 en urgence ; à surveiller si la frustration revient.
+- 2026-08-28 : Phase 2 complète — coquille Next.js (`web/`), écran
+  d'accueil (tuile Ménage + barre de recherche branchée sur `/ask` en
+  local), identité visuelle, auth V0 par jeton partagé (`proxy.ts`),
+  déployée sur Vercel par Chris : https://le-domaine-tau.vercel.app. Le
+  premier vrai écran cliquable du Domaine existe.
