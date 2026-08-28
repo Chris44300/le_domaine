@@ -179,7 +179,12 @@ sans rien casser de ce qui marche déjà avec Telegram.
       recherche par contenu, listing de dossier) qui ont le même problème.
 - [ ] 1.4 Répéter 1.2-1.3 pour 2-3 capacités supplémentaires, dans cet
       ordre suggéré (du plus indépendant au plus couplé) :
-  - [ ] 1.4.1 Lister un dossier (`list_browser_listing` ou équivalent).
+  - [x] 1.4.1 Lister un dossier — `POST /documents/list`, même pattern
+        d'extraction que 1.2 (`lister_fichiers_dossier_structure` créée
+        dans `core/fichiers.py`, `lister_fichiers_dossier` texte inchangé
+        par-dessus). Vérifié en conditions réelles contre le vrai dossier
+        documentaire. 347 tests verts (3 nouveaux dans
+        `tests/test_api_documents.py`).
   - [ ] 1.4.2 Lire un fichier / obtenir un résumé.
   - [ ] 1.4.3 Voir/gérer les tâches (`core/task_service.py`).
 - [ ] 1.5 Une fois 3-4 capacités stables et testées, généraliser vers UN
