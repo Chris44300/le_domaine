@@ -231,22 +231,27 @@ pas encore. **Phase 1 complète.**
 **Objectif :** un écran d'accueil qui existe pour de vrai, même vide,
 plutôt que cinq pièces jamais terminées.
 
-- [ ] 2.1 🎓 Créer le projet Next.js :
-  - [ ] 2.1.1 `npx create-next-app@latest` dans ce dossier (mêmes choix
-        que Ménage : TypeScript, App Router — cohérence entre les deux
-        projets Next.js).
-  - [ ] 2.1.2 Nettoyer le template par défaut.
-- [ ] 2.2 Écran d'accueil minimal :
-  - [ ] 2.2.1 Une grille avec UNE tuile ("Test" ou "Ménage" directement).
-  - [ ] 2.2.2 Une barre de recherche fixée en bas d'écran.
-- [ ] 2.3 Identité visuelle (courte, pas un chantier en soi) :
-  - [ ] 2.3.1 Palette + typographie choisies une fois, posées comme
-        variables CSS (comme déjà fait pour les documents d'audit).
-  - [ ] 2.3.2 Appliquées à la grille + la barre de recherche.
-- [ ] 2.4 Brancher la barre de recherche sur l'API de la Phase 1, EN LOCAL
-      d'abord (`http://localhost:8000`, les deux projets tournent sur la
-      même machine pendant le développement — pas de problème réseau à ce
-      stade, ça viendra en Phase 5).
+- [x] 2.1 🎓 Créer le projet Next.js :
+  - [x] 2.1.1 `npx create-next-app@latest web --yes` dans ce dossier
+        (sous-dossier `web/`, même convention que Ménage) — mêmes choix
+        que Ménage : TypeScript, Tailwind, ESLint, App Router.
+  - [x] 2.1.2 Template par défaut remplacé (page.tsx, layout.tsx,
+        globals.css réécrits).
+- [x] 2.2 Écran d'accueil minimal :
+  - [x] 2.2.1 Une grille avec UNE tuile ("Ménage", pas encore cliquable —
+        le lien réel vient en Phase 4).
+  - [x] 2.2.2 Une barre de recherche fixée en bas d'écran.
+- [x] 2.3 Identité visuelle (courte, pas un chantier en soi) :
+  - [x] 2.3.1 Palette chaleureuse (fond sombre/gold + variante claire via
+        `prefers-color-scheme`) posée en variables CSS ; typographie =
+        Geist (déjà fournie par le scaffold, pas de nouvelle police).
+  - [x] 2.3.2 Appliquées à la grille + la barre de recherche.
+- [x] 2.4 Barre de recherche branchée sur l'API de la Phase 1, EN LOCAL
+      (`http://localhost:8000`, via `NEXT_PUBLIC_API_URL` + CORS ajouté
+      côté API pour autoriser `localhost:3000`). Vérifié en conditions
+      réelles : desktop, mobile, clair, sombre, routage réel vers le
+      domaine "tâches" via `/ask` → orchestrateur. Aucune erreur console,
+      lint propre.
 - [ ] 2.5 Auth V0 : un simple jeton partagé (variable d'environnement),
       pas de vrai système de comptes — suffisant tant qu'il n'y a qu'un
       utilisateur. Le modèle d'identité de la Phase 0.3 n'a pas besoin
