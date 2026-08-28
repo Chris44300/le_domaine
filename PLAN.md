@@ -92,26 +92,29 @@ pénible à maintenir seul.
 **Objectif :** poser les décisions qui coûtent cher à changer plus tard,
 sans encore construire.
 
-- [ ] 0.1 Nommer le projet techniquement (proposition : `le-domaine` en
-      minuscules/tirets pour le futur repo Next.js).
+- [x] 0.1 Nommer le projet techniquement — décidé : `le-domaine` en
+      minuscules/tirets pour le futur repo Next.js. Voir `ARCHITECTURE.md`.
 - [x] 0.2 Créer ce dossier et l'initialiser en dépôt git (fait).
-- [ ] 0.3 Modèle d'identité minimal (juste la forme, pas l'implémentation) :
-  - [ ] 0.3.1 Lister les identités actuelles : whitelist Telegram
-        (`chat_id`), compte Supabase de Ménage (email).
-  - [ ] 0.3.2 Décider un identifiant personne canonique (ex. table
-        `people` avec `id`, `telegram_chat_id` nullable, `email` nullable)
-        — même si une seule ligne existe pour l'instant (toi).
-  - [ ] 0.3.3 Écrire cette décision dans `ARCHITECTURE.md` (nouveau
-        fichier, à créer) sans encore la coder.
-- [ ] 0.4 Contrat de réponse générique de l'API (le "langage commun" entre
+- [x] 0.3 Modèle d'identité minimal (juste la forme, pas l'implémentation) :
+  - [x] 0.3.1 Lister les identités actuelles : whitelist Telegram
+        (`chat_id`), compte Supabase de Ménage (email — Chris ET Mel,
+        déjà deux personnes réelles).
+  - [x] 0.3.2 Décider un identifiant personne canonique — table `people`
+        (`id`, `display_name`, `telegram_chat_id` nullable, `email`
+        nullable), conçue dès maintenant pour supporter plusieurs
+        personnes (Mel incluse), même si une seule ligne est peuplée pour
+        l'instant.
+  - [x] 0.3.3 Écrite dans `ARCHITECTURE.md` (§0.3), sans encore être codée.
+- [x] 0.4 Contrat de réponse générique de l'API (le "langage commun" entre
       le cœur Python et n'importe quel client) :
-  - [ ] 0.4.1 Lister les formes de réponse actuelles de Nigel (texte
-        simple, liste avec actions, fichier à télécharger, question en
-        attente de réponse, photo/aperçu).
-  - [ ] 0.4.2 Dessiner un schéma JSON neutre couvrant ces formes (ex. un
-        objet `{ "type": "text" | "list" | "file" | "question", ... }`).
-        Claude propose une première version, Chris challenge.
-  - [ ] 0.4.3 Documenter ce contrat dans `ARCHITECTURE.md`.
+  - [x] 0.4.1 Formes de réponse actuelles de Nigel recensées dans le code
+        réel (16 formes distinctes trouvées, toutes portées aujourd'hui
+        par une seule struct texte+boutons+metadata ad hoc) — voir
+        `ARCHITECTURE.md` §0.4.1.
+  - [x] 0.4.2 Schéma JSON neutre dessiné : enveloppe `{status, blocks[]}`,
+        7 types de bloc (`text`, `list`, `actions`, `question`, `file`,
+        `image`, `error`). Proposé par Claude, validé par Chris.
+  - [x] 0.4.3 Documenté dans `ARCHITECTURE.md` (§0.4.2-0.4.3).
 - [ ] 0.5 🎓 Recenser ce qui sera nouveau pour Chris et prévoir un mini
       apprentissage guidé au moment venu (pas maintenant) :
   - FastAPI (routes, modèles Pydantic, lancer un serveur avec `uvicorn`).
@@ -121,12 +124,14 @@ sans encore construire.
     pour Ménage, donc surtout de la répétition).
   - Gérer trois dépôts git séparés proprement (savoir dans lequel on
     travaille à un instant donné).
-- [ ] 0.6 Écrire un `README.md` pour ce dépôt, dans le même esprit que
+- [x] 0.6 Écrire un `README.md` pour ce dépôt, dans le même esprit que
       celui de Ménage (expliquer le "pourquoi", pas juste le "comment").
+      Déjà fait (renvoie vers ce plan pour le détail).
 
 **Sortie de la Phase 0 :** deux documents (`ARCHITECTURE.md` rempli,
 `README.md`), zéro code applicatif. On sait quoi construire avant de
-construire.
+construire. **Fait**, hors 0.5 (recensement d'apprentissage, volontairement
+laissé pour le moment venu plutôt que traité à l'avance).
 
 ---
 
@@ -370,3 +375,8 @@ années sans devenir un fardeau.
 
 - 2026-08-27 : première version, à l'issue de la session de confrontation
   d'architecture avec Claude.
+- 2026-08-28 : Phase 0 quasi close — 0.1 (nom `le-domaine`), 0.3 (modèle
+  `people`) et 0.4 (contrat JSON `{status, blocks[]}`) rédigés dans
+  `ARCHITECTURE.md` après recensement du code Nigel réel, validés par
+  Chris. 0.6 (README) déjà fait. Reste seulement 0.5 (recensement
+  apprentissage, volontairement différé) avant de passer en Phase 1.
