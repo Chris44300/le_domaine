@@ -318,22 +318,27 @@ menus/boutons (documents, tâches), équivalente à ce que Telegram sait
 déjà faire — en s'appuyant sur les routes structurées de la Phase 1, sans
 toucher à l'orchestrateur ni à Telegram.
 
-- [ ] 3bis.1 Widget Tâches dans Le Domaine : liste (`POST /tasks/list`),
-      cocher une tâche (`POST /tasks/toggle`), ajouter une tâche
-      (`POST /tasks/add`) — rendu en boutons/lignes cliquables, pas en
-      texte brut.
-- [ ] 3bis.2 Widget Documents : recherche (`POST /documents/search`),
-      résultats cliquables → lecture (`POST /documents/read`) ou résumé
-      (`POST /documents/summarize`) affichés inline.
-- [ ] 3bis.3 Intégrer ces widgets à l'écran d'accueil (tuiles Ménage/
-      Documents/Tâches, ou panneau accessible depuis la barre de
-      recherche — détail à trancher en construisant).
-- [ ] 3bis.4 Vérifié en conditions réelles (vraies données, comme le reste
-      du projet).
+- [x] 3bis.1 Widget Tâches dans Le Domaine (`app/tasks`) : liste
+      (`POST /tasks/list`), cocher une tâche (`POST /tasks/toggle`),
+      ajouter une tâche (`POST /tasks/add`) — rendu en boutons/lignes
+      cliquables, pas en texte brut.
+- [x] 3bis.2 Widget Documents (`app/documents`) : recherche
+      (`POST /documents/search`), résultats cliquables → lecture
+      (`POST /documents/read`) ou résumé (`POST /documents/summarize`)
+      affichés inline.
+- [x] 3bis.3 Intégrés à l'écran d'accueil : deux nouvelles tuiles
+      cliquables (Tâches, Documents) ; Ménage reste en attente de la
+      Phase 4.
+- [x] 3bis.4 Vérifié en conditions réelles : vraies tâches et vrais
+      documents affichés et manipulés correctement (ajout/bascule testés
+      avec une tâche de test créée puis remise à son état d'origine —
+      jamais de mutation sur les vraies données). Build de production et
+      lint propres.
 
 **Sortie de la Phase 3bis :** Le Domaine a un vrai menu cliquable,
 alimenté par le même cœur métier que Telegram — la preuve concrète que
-Chris demandait, sans dépendance nouvelle pour Telegram.
+Chris demandait, sans dépendance nouvelle pour Telegram. **Phase 3bis
+complète** (2026-08-28).
 
 ---
 
