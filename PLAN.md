@@ -186,6 +186,13 @@ sans rien casser de ce qui marche déjà avec Telegram.
         documentaire. 347 tests verts (3 nouveaux dans
         `tests/test_api_documents.py`).
   - [ ] 1.4.2 Lire un fichier / obtenir un résumé.
+    - [x] Lecture — `POST /documents/read`, même pattern d'extraction
+          (`lire_fichier_texte_local_structure` créée). Vérifié contre un
+          vrai PDF (extraction OCR/texte fonctionnelle). 349 tests verts.
+    - [ ] Résumé — en attente : c'est un appel LLM réel (OpenAI, coût +
+          non-déterminisme), pas juste une extraction de données comme les
+          3 capacités précédentes. À décider avec Chris avant de le
+          brancher (voir échange du 2026-08-28).
   - [ ] 1.4.3 Voir/gérer les tâches (`core/task_service.py`).
 - [ ] 1.5 Une fois 3-4 capacités stables et testées, généraliser vers UN
       point d'entrée "majordome" (`POST /ask`, texte libre) qui route en
