@@ -274,7 +274,22 @@ complète.**
 
 ---
 
-## Phase 3 — Brancher Telegram sur le nouveau cœur
+## Phase 3 — Brancher Telegram sur le nouveau cœur (REPORTÉE, voir note)
+
+> **Révision du 2026-08-28** : discussion avec Chris sur la direction long
+> terme — il envisage que Le Domaine devienne à terme l'interface
+> principale, avec ses propres menus cliquables (inspirés de l'UX
+> Telegram), au point que Telegram devienne un client secondaire/optionnel
+> plutôt qu'indispensable. Décision : pas de coupure ni de dépréciation
+> décidée aujourd'hui (Telegram continue de tourner normalement, sur son
+> chemin actuel, sans coût à le laisser vivre) — mais ça change la
+> priorité immédiate. Plutôt que de brancher Telegram sur l'API tout de
+> suite (ce qui le rendrait dépendant du serveur API sans bénéfice visible
+> pour Chris), on construit d'abord le menu cliquable côté Domaine
+> (documents + tâches), qui s'appuie sur les mêmes routes structurées déjà
+> testées en Phase 1. Cette phase reste valable et sera reprise plus tard,
+> une fois qu'il y aura un vrai bénéfice à migrer Telegram (ex. cohérence
+> de comportement entre les deux clients), pas avant.
 
 *Retour dans le dépôt Nigel.*
 
@@ -293,6 +308,32 @@ réelles, sur ce qui existe déjà.
 **Sortie de la Phase 3 :** Telegram et Le Domaine tapent tous les deux sur
 la même API. La promesse "un seul cerveau" devient vraie, pas juste
 déclarée.
+
+---
+
+## Phase 3bis — Menu cliquable côté Domaine (nouvelle, insérée le 2026-08-28)
+
+**Objectif :** donner au Domaine une vraie expérience de navigation par
+menus/boutons (documents, tâches), équivalente à ce que Telegram sait
+déjà faire — en s'appuyant sur les routes structurées de la Phase 1, sans
+toucher à l'orchestrateur ni à Telegram.
+
+- [ ] 3bis.1 Widget Tâches dans Le Domaine : liste (`POST /tasks/list`),
+      cocher une tâche (`POST /tasks/toggle`), ajouter une tâche
+      (`POST /tasks/add`) — rendu en boutons/lignes cliquables, pas en
+      texte brut.
+- [ ] 3bis.2 Widget Documents : recherche (`POST /documents/search`),
+      résultats cliquables → lecture (`POST /documents/read`) ou résumé
+      (`POST /documents/summarize`) affichés inline.
+- [ ] 3bis.3 Intégrer ces widgets à l'écran d'accueil (tuiles Ménage/
+      Documents/Tâches, ou panneau accessible depuis la barre de
+      recherche — détail à trancher en construisant).
+- [ ] 3bis.4 Vérifié en conditions réelles (vraies données, comme le reste
+      du projet).
+
+**Sortie de la Phase 3bis :** Le Domaine a un vrai menu cliquable,
+alimenté par le même cœur métier que Telegram — la preuve concrète que
+Chris demandait, sans dépendance nouvelle pour Telegram.
 
 ---
 
@@ -444,3 +485,8 @@ années sans devenir un fardeau.
   local), identité visuelle, auth V0 par jeton partagé (`proxy.ts`),
   déployée sur Vercel par Chris : https://le-domaine-tau.vercel.app. Le
   premier vrai écran cliquable du Domaine existe.
+- 2026-08-28 : révision de direction — Chris envisage Le Domaine comme
+  interface principale à terme (menus cliquables type Telegram), Telegram
+  devenant secondaire/optionnel plutôt que retiré activement. Phase 3
+  (Telegram → API) reportée ; nouvelle Phase 3bis insérée (menu cliquable
+  Documents/Tâches côté Domaine, sur les routes déjà construites).
