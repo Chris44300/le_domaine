@@ -346,15 +346,18 @@ complète** (2026-08-28).
 
 **Objectif :** la première vraie pièce, à coût quasi nul.
 
-- [ ] 4.1 Ajouter une tuile "Ménage" sur l'écran d'accueil du Domaine.
-- [ ] 4.2 V0 : la tuile ouvre l'application Ménage existante (son propre
-      déploiement Vercel) — aucune réécriture, juste un lien.
+- [x] 4.1 Tuile "Ménage" sur l'écran d'accueil du Domaine.
+- [x] 4.2 V0 : la tuile ouvre l'application Ménage existante
+      (https://application-taches-menageres.vercel.app/, dans un nouvel
+      onglet) — aucune réécriture, juste un lien. Vérifié en conditions
+      réelles.
 - [ ] 4.3 V1 (optionnel, seulement si le confort le justifie plus tard) :
       ramener les écrans Ménage sous l'habillage visuel du Domaine.
       Décision à reprendre après usage réel du V0, pas avant.
 
 **Sortie de la Phase 4 :** le Domaine donne accès aux tâches ménagères
-sans avoir touché à une ligne du code Ménage existant.
+sans avoir touché à une ligne du code Ménage existant. **Phase 4
+complète** (V0 ; V1 volontairement en attente d'usage réel).
 
 ---
 
