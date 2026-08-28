@@ -177,7 +177,7 @@ sans rien casser de ce qui marche déjà avec Telegram.
       (tests existants verts sans modification). Cette même extraction
       servira probablement pour les capacités suivantes (résultats de
       recherche par contenu, listing de dossier) qui ont le même problème.
-- [ ] 1.4 Répéter 1.2-1.3 pour 2-3 capacités supplémentaires, dans cet
+- [x] 1.4 Répéter 1.2-1.3 pour 2-3 capacités supplémentaires, dans cet
       ordre suggéré (du plus indépendant au plus couplé) :
   - [x] 1.4.1 Lister un dossier — `POST /documents/list`, même pattern
         d'extraction que 1.2 (`lister_fichiers_dossier_structure` créée
@@ -193,7 +193,14 @@ sans rien casser de ce qui marche déjà avec Telegram.
           tests avec LLM mocké (aucun coût dans la suite pytest) + une
           vérification manuelle unique avec un vrai appel, décidée avec
           Chris. 351 tests verts.
-  - [ ] 1.4.3 Voir/gérer les tâches (`core/task_service.py`).
+  - [x] 1.4.3 Voir/gérer les tâches — `POST /tasks/list`, `/add`,
+        `/toggle` (`core/task_service.py`). Même pattern d'extraction
+        (`ajouter_tache`, `basculer_tache` structurés). Périmètre limité
+        volontairement (pas de suppression/renommage/priorité/archivage
+        côté API pour l'instant — pas de besoin identifié avant le
+        majordome). Vérifié en lecture seule contre les vraies tâches ;
+        écriture testée uniquement en isolation (jamais contre les
+        vraies données). 357 tests verts.
 - [ ] 1.5 Une fois 3-4 capacités stables et testées, généraliser vers UN
       point d'entrée "majordome" (`POST /ask`, texte libre) qui route en
       interne vers `assistant/orchestrator.py` — c'est le vrai début du
