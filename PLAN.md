@@ -201,16 +201,26 @@ sans rien casser de ce qui marche déjà avec Telegram.
         majordome). Vérifié en lecture seule contre les vraies tâches ;
         écriture testée uniquement en isolation (jamais contre les
         vraies données). 357 tests verts.
-- [ ] 1.5 Une fois 3-4 capacités stables et testées, généraliser vers UN
-      point d'entrée "majordome" (`POST /ask`, texte libre) qui route en
-      interne vers `assistant/orchestrator.py` — c'est le vrai début du
-      majordome, pas encore branché à un LLM de "présentation" côté client.
-- [ ] 1.6 Commit + push du dépôt Nigel à chaque capacité ajoutée (petites
-      tranches, comme tout le reste du projet jusqu'ici).
+- [x] 1.5 Point d'entrée "majordome" — `POST /ask` (texte libre),
+      `api/ask.py`. Route vers `assistant.app.AssistantApp.process_message`
+      (le même chemin que Telegram/terminal) sans aucune logique de
+      routage réécrite : `channel="api"` fait naturellement sauter les
+      branches spécifiques Telegram, déjà gardées par des checks de
+      canal existants dans le code. Le texte renvoyé n'est pas encore
+      restructuré selon le contrat neutre complet — un simple bloc
+      `text`, comme prévu ("pas encore branché à un LLM de présentation
+      côté client"). Vérifié en conditions réelles : routage réussi vers
+      2 domaines différents (tâches, commandes générales) sans appel LLM
+      pour ces cas déterministes ; le chemin LLM-routé n'est pas neuf
+      (déjà exercé quotidiennement par Telegram) donc pas re-testé pour
+      éviter un appel payant inutile. 360 tests verts.
+- [x] 1.6 Commit + push du dépôt Nigel à chaque capacité ajoutée (petites
+      tranches, comme tout le reste du projet jusqu'ici) — fait à chaque
+      étape de la Phase 1.
 
 **Sortie de la Phase 1 :** une API locale (`localhost:8000`) qui expose
 Nigel sans dépendre de Telegram, testée, committée. Telegram n'y touche
-pas encore.
+pas encore. **Phase 1 complète.**
 
 ---
 
@@ -409,3 +419,11 @@ années sans devenir un fardeau.
   `ARCHITECTURE.md` après recensement du code Nigel réel, validés par
   Chris. 0.6 (README) déjà fait. Reste seulement 0.5 (recensement
   apprentissage, volontairement différé) avant de passer en Phase 1.
+- 2026-08-28 : Phase 1 complète — 4 capacités Nigel exposées en API
+  (recherche, listing, lecture, résumé de fichiers ; voir/ajouter/cocher
+  des tâches) puis généralisées via `POST /ask` (majordome, routage vers
+  `assistant.app.AssistantApp` sans code de routage dupliqué). 360 tests
+  verts. Chris a signalé se sentir "spectateur" sans interface cliquable
+  pendant cette phase (voir mémoire `feedback_le_domaine_visibility` côté
+  Claude) — a choisi de garder l'ordre du plan plutôt que d'avancer la
+  Phase 2 en urgence ; à surveiller si la frustration revient.
