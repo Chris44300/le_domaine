@@ -1,11 +1,7 @@
 "use client";
 
 import { useState } from "react";
-
-type AskBlock = { kind: string; body?: string; message?: string };
-type AskResponse = { status: "ok" | "error"; blocks: AskBlock[] };
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+import { callApi, firstErrorMessage } from "../lib/api";
 
 export default function SearchBar() {
   const [message, setMessage] = useState("");
@@ -22,24 +18,16 @@ export default function SearchBar() {
     setAnswer(null);
     setIsError(false);
 
-    try {
-      const reponse = await fetch(`${API_URL}/ask`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: texte }),
-      });
-      const corps: AskResponse = await reponse.json();
-      const bloc = corps.blocks[0];
-      setIsError(corps.status === "error");
-      setAnswer(bloc?.body ?? bloc?.message ?? "Pas de réponse.");
-    } catch {
-      setIsError(true);
-      setAnswer(
-        `Impossible de joindre l'API (${API_URL}). Le serveur local tourne-t-il ?`,
-      );
-    } finally {
-      setIsLoading(false);
+    const reponse = await callApi("/ask", { message: texte });
+    const erreur = firstErrorMessage(reponse);
+    setIsError(erreur !== null);
+    if (erreur) {
+      setAnswer(erreur);
+    } else {
+      const bloc = reponse.blocks[0];
+      setAnswer(bloc && bloc.kind === "text" ? bloc.body : "Pas de réponse.");
     }
+    setIsLoading(false);
   }
 
   return (

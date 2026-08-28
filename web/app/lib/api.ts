@@ -15,12 +15,24 @@ export type Block =
 export type ApiResponse = { status: "ok" | "error"; blocks: Block[] };
 
 export async function callApi(path: string, body: unknown): Promise<ApiResponse> {
-  const reponse = await fetch(`${API_URL}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  return reponse.json();
+  try {
+    const reponse = await fetch(`${API_URL}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    return await reponse.json();
+  } catch {
+    return {
+      status: "error",
+      blocks: [
+        {
+          kind: "error",
+          message: `Impossible de joindre l'API (${API_URL}). Le serveur local tourne-t-il ?`,
+        },
+      ],
+    };
+  }
 }
 
 export function firstErrorMessage(response: ApiResponse): string | null {

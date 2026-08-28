@@ -62,7 +62,7 @@ export default function TasksPage() {
 
       {isLoading ? (
         <p className="text-sm text-foreground/60">Chargement…</p>
-      ) : (
+      ) : error ? null : (
         <ul className="flex flex-col gap-2">
           {items.map((item) => (
             <li key={item.id}>
