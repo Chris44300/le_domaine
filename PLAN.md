@@ -252,11 +252,14 @@ plutôt que cinq pièces jamais terminées.
       réelles : desktop, mobile, clair, sombre, routage réel vers le
       domaine "tâches" via `/ask` → orchestrateur. Aucune erreur console,
       lint propre.
-- [ ] 2.5 Auth V0 : un simple jeton partagé (variable d'environnement),
-      pas de vrai système de comptes — suffisant tant qu'il n'y a qu'un
-      utilisateur. Le modèle d'identité de la Phase 0.3 n'a pas besoin
-      d'être implémenté avant que ça devienne nécessaire (Mel, ou un accès
-      extérieur).
+- [x] 2.5 Auth V0 : jeton partagé (`DOMAIN_ACCESS_TOKEN` en variable
+      d'environnement). `proxy.ts` (le nouveau nom du Middleware Next.js
+      16) protège toutes les routes, cookie httpOnly posé par
+      `/api/login` si le jeton soumis correspond. Pas de vrai système de
+      comptes — modèle d'identité de la Phase 0.3 toujours pas implémenté,
+      pas encore nécessaire. Vérifié en conditions réelles (redirection,
+      mauvais jeton rejeté, bon jeton accepté et persistant). Build de
+      production + lint propres.
 - [ ] 2.6 🎓 Déployer sur Vercel (répétition de ce qui a déjà été fait pour
       Ménage) — même si l'API n'est pas encore joignable depuis internet à
       ce stade (ça vient en Phase 5), le déploiement du SHELL peut déjà
