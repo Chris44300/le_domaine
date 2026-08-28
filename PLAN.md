@@ -495,3 +495,13 @@ années sans devenir un fardeau.
   devenant secondaire/optionnel plutôt que retiré activement. Phase 3
   (Telegram → API) reportée ; nouvelle Phase 3bis insérée (menu cliquable
   Documents/Tâches côté Domaine, sur les routes déjà construites).
+- 2026-08-28 : Phase 3bis complète, testée par Chris. Bug trouvé et
+  corrigé au passage (pages bloquées sur "Chargement..." sans erreur si
+  l'API est injoignable). Leçon technique retenue : un site HTTPS public
+  (Vercel) qui appelle une API tournant en local sur la machine du
+  visiteur se heurte à *Private Network Access* de Chrome — en plus du
+  CORS classique, le serveur doit répondre avec l'en-tête
+  `Access-Control-Allow-Private-Network: true` (ajouté dans
+  `api/main.py`). Confirmé fonctionnel par Chris dans son navigateur
+  réel. Utile à se rappeler pour la Phase 5 (Tailscale) : ce même
+  mécanisme jouera probablement un rôle une fois le tunnel réseau posé.
