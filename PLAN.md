@@ -660,15 +660,40 @@ depuis le Domaine, où que Chris se trouve.
         entrantes par défaut même si uvicorn écoute sur toutes les
         interfaces.
 - [ ] 5.3 Sur Vercel, mettre à jour la variable d'environnement
-      `NEXT_PUBLIC_API_URL` pour pointer vers `http://100.113.182.103:8000`
-      (l'adresse Tailscale du PC) puis redéployer (les variables
-      `NEXT_PUBLIC_*` sont figées au moment du build, un changement de
-      valeur seul ne suffit pas). À faire par Chris dans le dashboard
-      Vercel — Claude n'a pas d'accès de déploiement configuré. Le fetch
+      `NEXT_PUBLIC_API_URL` pour pointer vers
+      `https://pcseeouest016.tailed7ce8.ts.net:8000` (voir 5.3bis — mise à
+      jour le 2026-08-29, ce n'est plus l'IP Tailscale nue en HTTP) puis
+      redéployer (les variables `NEXT_PUBLIC_*` sont figées au moment du
+      build, un changement de valeur seul ne suffit pas). À faire par
+      Chris dans le dashboard Vercel — Claude n'a pas d'accès de
+      déploiement configuré. Le fetch
       reste côté client (dans le navigateur du visiteur), donc ça marche
       tant que l'appareil qui consulte le Domaine est lui-même sur le
       tailnet (le téléphone de Chris l'est déjà) — Vercel lui-même n'a
       pas besoin d'être sur le réseau Tailscale.
+- [~] 5.3bis (ajouté le 2026-08-29) Certificat HTTPS Tailscale, pour
+      régler le blocage de téléchargement découvert en 3bis.2decies
+      (Chrome bloque le HTTP déclenché depuis une page HTTPS) :
+  - [x] Chris a activé "HTTPS Certificates" dans la console d'admin
+        Tailscale.
+  - [x] Claude a généré le certificat sur le PC : `tailscale cert
+        pcseeouest016.tailed7ce8.ts.net`, fichiers dans
+        `assistant-ia-personnel/certs/` (ajouté au `.gitignore` — clé
+        privée, spécifique à la machine, ne doit jamais être commitée).
+  - [ ] Reste à faire par Chris : relancer l'API avec la commande
+        suivante (au lieu du `--host 0.0.0.0 --port 8000` habituel),
+        depuis le dossier `assistant-ia-personnel` :
+        `uvicorn api.main:app --host 0.0.0.0 --port 8000 --ssl-keyfile
+        certs/pcseeouest016.tailed7ce8.ts.net.key --ssl-certfile
+        certs/pcseeouest016.tailed7ce8.ts.net.crt`
+  - [ ] Reste à faire par Chris : mettre à jour `NEXT_PUBLIC_API_URL` sur
+        Vercel (voir 5.3) et redéployer.
+  - [ ] À vérifier une fois les deux étapes ci-dessus faites : que le
+        téléchargement fonctionne bien depuis le Domaine en visite réelle
+        (Vercel + téléphone en 4G).
+  - Note : le certificat Tailscale expire au bout de quelques mois — un
+    renouvellement (`tailscale cert` à nouveau) sera nécessaire un jour,
+    à garder en tête si le download recommence à échouer plus tard.
 - [x] 5.4 Construire la pièce Documents dans le Domaine — fait dès la
       Phase 3bis (`app/documents`), avant même le tunnel réseau :
   - [x] 5.4.1 Liste de dossiers/fichiers (réutilise l'API de la Phase 1).
