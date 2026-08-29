@@ -507,7 +507,12 @@ années sans devenir un fardeau.
 - [ ] 9.2 Sécurité : rotation des jetons d'API, whitelist Telegram
       maintenue, accès Tailscale limité aux appareils du foyer.
 - [ ] 9.3 Monitoring léger : un moyen simple de savoir si l'API/le mini-PC
-      est down (ex. vérification programmée + alerte Telegram).
+      est down (ex. vérification programmée + alerte Telegram). Premier
+      pas fait le 2026-08-29 : `/documents/*` et `/tasks/*` journalisent
+      maintenant chaque appel dans `logs/conversation.log`
+      (`api/logging_utils.py`), comme `/ask` le faisait déjà — Chris n'a
+      plus besoin de retaper ce qu'il a testé, Claude peut relire le
+      journal directement. Reste à faire : alerte si le serveur tombe.
 - [ ] 9.4 Documentation à jour dans chaque dépôt, écrite pour "moi dans 2
       ans qui a tout oublié" (même esprit que le README de Ménage).
 
@@ -550,3 +555,16 @@ années sans devenir un fardeau.
   `api/main.py`). Confirmé fonctionnel par Chris dans son navigateur
   réel. Utile à se rappeler pour la Phase 5 (Tailscale) : ce même
   mécanisme jouera probablement un rôle une fois le tunnel réseau posé.
+- 2026-08-29 : Chris teste par lui-même le Domaine + l'API en local
+  (Tailscale connecté sur son PC actuel + téléphone). Remarque
+  importante : Claude n'avait aucun moyen de voir ce que Chris testait
+  sans qu'il le retape dans le chat. Diagnostic en creusant
+  `logs/conversation.log` (déjà alimenté par `/ask`, pas par
+  `/documents/*`/`/tasks/*`) : le "menu cliquable" ne s'affichait pas
+  pour certains messages de Chris car il utilisait des phrasés de
+  navigation façon Telegram ("dossier", "remonte", "ouvre le premier")
+  non couverts par la Phase 6 (qui ne gère que la recherche/listing par
+  mot-clé et les tâches) — comportement attendu, pas un bug. Corrigé au
+  passage : les routes API dédiées journalisent maintenant aussi (voir
+  9.3). Images toujours pas prises en charge par `/documents/read` —
+  confirmé, accepté par Chris comme limite connue pour l'instant.
