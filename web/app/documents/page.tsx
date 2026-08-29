@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { callApi, firstErrorMessage, type ListItem } from "../lib/api";
+import { buildDownloadUrl, callApi, firstErrorMessage, type ListItem } from "../lib/api";
 
 type Selection = { item: ListItem; kind: "read" | "summarize"; body: string };
 
@@ -85,6 +85,12 @@ export default function DocumentsPage() {
 
   function openFolder(item: ListItem) {
     loadFolder(searchActive ? item.id : joinPath(currentPath, item.label));
+  }
+
+  function downloadHref(item: ListItem) {
+    const nomFichier = searchActive ? item.id : item.label;
+    const dossier = searchActive ? null : currentPath || null;
+    return buildDownloadUrl(nomFichier, dossier);
   }
 
   const segments = currentPath ? currentPath.split("/") : [];
@@ -199,6 +205,13 @@ export default function DocumentsPage() {
                       >
                         Résumer
                       </button>
+                      <a
+                        href={downloadHref(item)}
+                        className="rounded-full border border-border px-3 py-1 text-xs text-foreground"
+                        title="Télécharger"
+                      >
+                        ⬇
+                      </a>
                     </div>
                   </div>
                 )}
