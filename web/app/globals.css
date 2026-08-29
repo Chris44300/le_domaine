@@ -36,3 +36,16 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
+
+/* Retour tactile global : "enfonce" au clic sur tous les boutons/liens du
+   projet plutot que d'ajouter la meme classe partout - Chris a signale
+   que l'interface actuelle etait trop plate. */
+button,
+a {
+  transition: transform 0.08s ease, opacity 0.15s ease;
+}
+
+button:not(:disabled):active,
+a:active {
+  transform: scale(0.96);
+}

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import Spinner from "../components/Spinner";
 import { buildDownloadUrl, callApi, firstErrorMessage, type ListItem } from "../lib/api";
 
 type Selection = { item: ListItem; kind: "read" | "summarize"; body: string };
@@ -18,7 +19,7 @@ export default function DocumentsPage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [selection, setSelection] = useState<Selection | null>(null);
-  const [isOpening, setIsOpening] = useState(false);
+  const [loadingKey, setLoadingKey] = useState<string | null>(null);
 
   async function loadFolder(path: string) {
     setIsLoading(true);
@@ -68,7 +69,8 @@ export default function DocumentsPage() {
   }
 
   async function openFile(item: ListItem, kind: "read" | "summarize") {
-    setIsOpening(true);
+    const key = `${item.id}-${kind}`;
+    setLoadingKey(key);
     setError(null);
     const nomFichier = searchActive ? item.id : item.label;
     const dossier = searchActive ? null : currentPath || null;
@@ -80,7 +82,7 @@ export default function DocumentsPage() {
       const bloc = reponse.blocks[0];
       setSelection({ item, kind, body: bloc && bloc.kind === "text" ? bloc.body : "" });
     }
-    setIsOpening(false);
+    setLoadingKey(null);
   }
 
   function openFolder(item: ListItem) {
@@ -193,16 +195,18 @@ export default function DocumentsPage() {
                     <div className="flex shrink-0 gap-2">
                       <button
                         onClick={() => openFile(item, "read")}
-                        disabled={isOpening}
-                        className="rounded-full border border-border px-3 py-1 text-xs text-foreground"
+                        disabled={loadingKey !== null}
+                        className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs text-foreground disabled:opacity-50"
                       >
+                        {loadingKey === `${item.id}-read` && <Spinner />}
                         Lire
                       </button>
                       <button
                         onClick={() => openFile(item, "summarize")}
-                        disabled={isOpening}
-                        className="rounded-full border border-border px-3 py-1 text-xs text-foreground"
+                        disabled={loadingKey !== null}
+                        className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs text-foreground disabled:opacity-50"
                       >
+                        {loadingKey === `${item.id}-summarize` && <Spinner />}
                         Résumer
                       </button>
                       <a

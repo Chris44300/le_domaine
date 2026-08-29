@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Spinner from "./Spinner";
 import { callApi, firstErrorMessage, type Block, type ListItem } from "../lib/api";
 
 function isTaskItem(item: ListItem) {
@@ -137,9 +138,10 @@ export default function SearchBar() {
           <button
             type="submit"
             disabled={isLoading}
-            className="rounded-full bg-accent px-5 py-3 text-sm font-medium text-white disabled:opacity-50"
+            className="flex items-center justify-center gap-1.5 rounded-full bg-accent px-5 py-3 text-sm font-medium text-white disabled:opacity-50"
           >
-            {isLoading ? "…" : "Go"}
+            {isLoading && <Spinner />}
+            Go
           </button>
         </form>
       </div>
