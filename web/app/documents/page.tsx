@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useRef, useState } from "react";
 import Spinner from "../components/Spinner";
 import { buildDownloadUrl, buildPreviewUrl, callApi, downloadZip, firstErrorMessage, type ListItem } from "../lib/api";
 
@@ -11,8 +12,8 @@ type Selection =
       kind: "read" | "summarize";
       body: string;
       warning?: string;
-      ligneTroncature?: number;
-      sections?: ListItem[];
+      page?: number;
+      totalPages?: number;
     }
   | { item: ListItem; kind: "image" };
 
@@ -40,6 +41,15 @@ function joinPath(base: string, name: string) {
 }
 
 export default function DocumentsPage() {
+  return (
+    <Suspense fallback={<div className="flex-1 px-6 pb-40 pt-16 text-sm text-foreground/60">Chargement…</div>}>
+      <DocumentsPageInner />
+    </Suspense>
+  );
+}
+
+function DocumentsPageInner() {
+  const searchParams = useSearchParams();
   const [currentPath, setCurrentPath] = useState("");
   const [items, setItems] = useState<ListItem[]>([]);
   const [query, setQuery] = useState("");
@@ -64,6 +74,8 @@ export default function DocumentsPage() {
   const [gallerySelection, setGallerySelection] = useState<ListItem[] | null>(null);
   const [gridView, setGridView] = useState(false);
   const [downloadingZip, setDownloadingZip] = useState(false);
+  const [pageSelectorOuvert, setPageSelectorOuvert] = useState(false);
+  const [pageInput, setPageInput] = useState("");
   // Jeton de navigation : incrémenté à chaque écran ouvert et à chaque
   // retour arrière. Une requête en cours compare son jeton au jeton
   // courant avant d'appliquer son résultat - si l'utilisateur est parti
@@ -108,10 +120,36 @@ export default function DocumentsPage() {
   }
 
   useEffect(() => {
-    // Chargement initial au montage - cas de fetch-in-effect explicitement
-    // valide selon https://react.dev/learn/you-might-not-need-an-effect
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadFolder("");
+    // Lien profond depuis la recherche du Domaine (SearchBar.tsx) -
+    // "m'amener directement dans le bon niveau de l'application
+    // document" plutot qu'un apercu limite dans le petit widget de
+    // recherche. Cas de fetch-in-effect explicitement valide selon
+    // https://react.dev/learn/you-might-not-need-an-effect
+    const dossierParam = searchParams.get("dossier");
+    const fichierParam = searchParams.get("fichier");
+    const ligneParam = searchParams.get("ligne");
+
+    if (fichierParam) {
+      const derniereBarre = Math.max(fichierParam.lastIndexOf("/"), fichierParam.lastIndexOf("\\"));
+      const dossierDuFichier = derniereBarre >= 0 ? fichierParam.slice(0, derniereBarre) : null;
+      const nomFichier = derniereBarre >= 0 ? fichierParam.slice(derniereBarre + 1) : fichierParam;
+      const itemCible: ListItem = {
+        id: fichierParam,
+        label: nomFichier,
+        meta: { type: "fichier", dossier: dossierDuFichier },
+      };
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      loadFolder(dossierDuFichier ?? "");
+      if (ligneParam) {
+        openReaderAt(itemCible, Number(ligneParam));
+      } else {
+        openFile(itemCible, "read");
+      }
+      return;
+    }
+
+    loadFolder(dossierParam ?? "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function runSearch(endpoint: "search" | "search-content") {
@@ -204,7 +242,7 @@ export default function DocumentsPage() {
     setDocSearchLoading(false);
   }
 
-  async function openFile(item: ListItem, kind: "read" | "summarize") {
+  async function openFile(item: ListItem, kind: "read" | "summarize", page: number = 1) {
     const token = ++requestTokenRef.current;
     const key = `${item.id}-${kind}`;
     setLoadingKey(key);
@@ -222,23 +260,30 @@ export default function DocumentsPage() {
     if (!selection || selection.kind === "image" || selection.item.id !== item.id) {
       setQaHistory([]);
       setQaInput("");
+      setPageSelectorOuvert(false);
+      setPageInput("");
     }
 
-    // Le résumé passe par un LLM et peut prendre plusieurs secondes -
+    // Le résumé passe par un LLM, et la lecture peut déclencher un OCR
+    // sur un scan - les deux peuvent prendre plusieurs secondes, donc
     // proposer de prévenir plutôt que de bloquer sur l'attente (demande
-    // de Chris). La lecture brute est un accès fichier local, jamais lente.
-    let minuteur: ReturnType<typeof setTimeout> | null = null;
-    if (kind === "summarize") {
-      minuteur = setTimeout(() => {
-        if (requestTokenRef.current === token) {
-          setSlowNotice({ token, label: `le résumé de ${item.label}` });
-        }
-      }, DELAI_AVANT_NOTICE_LENTE_MS);
-    }
+    // de Chris, élargie après avoir remarqué qu'une lecture pouvait
+    // aussi mouliner longtemps sans aucun avertissement).
+    const minuteur: ReturnType<typeof setTimeout> = setTimeout(() => {
+      if (requestTokenRef.current === token) {
+        setSlowNotice({
+          token,
+          label: kind === "summarize" ? `le résumé de ${item.label}` : `la lecture de ${item.label}`,
+        });
+      }
+    }, DELAI_AVANT_NOTICE_LENTE_MS);
 
     const { nomFichier, dossier } = resolveFileTarget(item);
-    const reponse = await callApi(`/documents/${kind}`, { nom_fichier: nomFichier, dossier });
-    if (minuteur) clearTimeout(minuteur);
+    const reponse = await callApi(
+      kind === "read" ? "/documents/read-page" : "/documents/summarize",
+      kind === "read" ? { nom_fichier: nomFichier, dossier, page } : { nom_fichier: nomFichier, dossier },
+    );
+    clearTimeout(minuteur);
 
     const message = firstErrorMessage(reponse);
     const bloc = reponse.blocks[0];
@@ -247,8 +292,8 @@ export default function DocumentsPage() {
       kind,
       body: bloc && bloc.kind === "text" ? bloc.body : "",
       warning: bloc && bloc.kind === "text" ? bloc.warning : undefined,
-      ligneTroncature: bloc && bloc.kind === "text" ? bloc.ligne_troncature : undefined,
-      sections: bloc && bloc.kind === "text" ? bloc.sections : undefined,
+      page: bloc && bloc.kind === "text" ? bloc.page : undefined,
+      totalPages: bloc && bloc.kind === "text" ? bloc.total_pages : undefined,
     };
 
     if (requestTokenRef.current === token) {
@@ -260,8 +305,10 @@ export default function DocumentsPage() {
       // L'utilisateur a demandé à être prévenu et est parti voir autre
       // chose entre-temps - ne pas forcer son écran, juste le signaler.
       notifiedTokensRef.current.delete(token);
+      const label = kind === "summarize" ? "Le résumé" : "La lecture";
+      const pret = kind === "summarize" ? "prêt" : "prête";
       setCompletedNotice({
-        message: message ? `Le résumé de "${item.label}" a échoué : ${message}` : `Le résumé de "${item.label}" est prêt.`,
+        message: message ? `${label} de "${item.label}" a échoué : ${message}` : `${label} de "${item.label}" est ${pret}.`,
         onView: message ? undefined : () => setSelection(resultat),
       });
     }
@@ -555,42 +602,51 @@ export default function DocumentsPage() {
         )}
       </nav>
 
-      <form onSubmit={handleSearch} className="flex gap-2">
-        <input
-          type="text"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder={`Chercher dans ${currentPath || "tout le dossier"}…`}
-          className="flex-1 rounded-full border border-border bg-surface px-4 py-2 text-sm text-foreground outline-none focus:border-accent"
-        />
-        {searchActive ? (
-          <button
-            type="button"
-            onClick={() => loadFolder(currentPath)}
-            className="rounded-full border border-border px-4 py-2 text-sm text-foreground"
-          >
-            Effacer
-          </button>
-        ) : (
-          <button
-            type="submit"
-            disabled={!query.trim()}
-            className="rounded-full bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-          >
-            Chercher
-          </button>
-        )}
-      </form>
+      {/* Cachée quand un fichier/la lecture contextuelle est ouvert -
+          affichée en même temps que la recherche "dans ce document" ci-
+          dessous, les deux barres cote a cote perturbaient (retour de
+          Chris). Une seule recherche visible a la fois, adaptee au
+          niveau ou l'on se trouve. */}
+      {!reader && !selection && (
+        <>
+          <form onSubmit={handleSearch} className="flex gap-2">
+            <input
+              type="text"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={`Chercher dans ${currentPath || "tout le dossier"}…`}
+              className="flex-1 rounded-full border border-border bg-surface px-4 py-2 text-sm text-foreground outline-none focus:border-accent"
+            />
+            {searchActive ? (
+              <button
+                type="button"
+                onClick={() => loadFolder(currentPath)}
+                className="rounded-full border border-border px-4 py-2 text-sm text-foreground"
+              >
+                Effacer
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={!query.trim()}
+                className="rounded-full bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+              >
+                Chercher
+              </button>
+            )}
+          </form>
 
-      {searchActive && !isLoading && (
-        <button
-          onClick={() => runSearch(contentSearchActive ? "search" : "search-content")}
-          className="self-start text-xs text-accent underline"
-        >
-          {contentSearchActive
-            ? "← Revenir à la recherche par nom"
-            : "🔍 Rechercher aussi dans le contenu des documents"}
-        </button>
+          {searchActive && !isLoading && (
+            <button
+              onClick={() => runSearch(contentSearchActive ? "search" : "search-content")}
+              className="self-start text-xs text-accent underline"
+            >
+              {contentSearchActive
+                ? "← Revenir à la recherche par nom"
+                : "🔍 Rechercher aussi dans le contenu des documents"}
+            </button>
+          )}
+        </>
       )}
 
       {!isLoading && !selection && !reader && items.length > 0 && (
@@ -844,20 +900,6 @@ export default function DocumentsPage() {
                 </p>
               )}
 
-              {selection.sections && selection.sections.length > 1 && (
-                <div className="flex flex-wrap gap-2">
-                  {selection.sections.map((section) => (
-                    <button
-                      key={section.id}
-                      onClick={() => openReaderAt(selection.item, section.meta!.ligne as number)}
-                      className="rounded-full border border-border px-3 py-1 text-xs text-foreground hover:border-accent"
-                    >
-                      📄 {section.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-
               <form onSubmit={searchInDocument} className="flex gap-2">
                 <input
                   type="text"
@@ -914,15 +956,61 @@ export default function DocumentsPage() {
                   <p className="max-h-96 overflow-y-auto whitespace-pre-wrap text-sm text-foreground/80">
                     {selection.body}
                   </p>
-                  {selection.ligneTroncature && (
-                    <button
-                      onClick={() => openReaderAt(selection.item, selection.ligneTroncature as number)}
-                      disabled={readerLoading}
-                      className="flex items-center gap-1.5 self-start text-xs text-accent underline disabled:opacity-50"
-                    >
-                      {readerLoading && <Spinner />}
-                      Voir la suite →
-                    </button>
+                  {selection.kind === "read" && selection.totalPages && selection.totalPages > 1 && (
+                    <div className="flex flex-col gap-2 border-t border-border pt-2">
+                      <div className="flex items-center justify-between text-xs text-foreground/70">
+                        <button
+                          onClick={() => openFile(selection.item, "read", (selection.page ?? 1) - 1)}
+                          disabled={loadingKey !== null || (selection.page ?? 1) <= 1}
+                          className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-foreground disabled:opacity-40"
+                        >
+                          {loadingKey !== null && <Spinner />}← Page précédente
+                        </button>
+                        <button
+                          onClick={() => setPageSelectorOuvert((ouvert) => !ouvert)}
+                          className="underline hover:text-accent"
+                        >
+                          Page {selection.page} / {selection.totalPages}
+                        </button>
+                        <button
+                          onClick={() => openFile(selection.item, "read", (selection.page ?? 1) + 1)}
+                          disabled={loadingKey !== null || (selection.page ?? 1) >= (selection.totalPages ?? 1)}
+                          className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-foreground disabled:opacity-40"
+                        >
+                          Page suivante →{loadingKey !== null && <Spinner />}
+                        </button>
+                      </div>
+                      {pageSelectorOuvert && (
+                        <form
+                          onSubmit={(event) => {
+                            event.preventDefault();
+                            const page = Number(pageInput);
+                            if (page >= 1 && page <= (selection.totalPages ?? 1)) {
+                              openFile(selection.item, "read", page);
+                              setPageSelectorOuvert(false);
+                              setPageInput("");
+                            }
+                          }}
+                          className="flex gap-2"
+                        >
+                          <input
+                            type="number"
+                            min={1}
+                            max={selection.totalPages}
+                            value={pageInput}
+                            onChange={(event) => setPageInput(event.target.value)}
+                            placeholder={`Aller à la page (1–${selection.totalPages})`}
+                            className="flex-1 rounded-full border border-border bg-surface px-4 py-2 text-sm text-foreground outline-none focus:border-accent"
+                          />
+                          <button
+                            type="submit"
+                            className="rounded-full bg-accent px-4 py-2 text-sm font-medium text-white"
+                          >
+                            Aller
+                          </button>
+                        </form>
+                      )}
+                    </div>
                   )}
                 </div>
               )}

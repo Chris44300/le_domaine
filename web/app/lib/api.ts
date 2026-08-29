@@ -18,6 +18,8 @@ export type Block =
       total_lignes?: number;
       ligne_troncature?: number;
       sections?: ListItem[];
+      page?: number;
+      total_pages?: number;
     }
   | { kind: "list"; items: ListItem[] }
   | { kind: "error"; message: string };

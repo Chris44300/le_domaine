@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useRef, useState } from "react";
 import Spinner from "./Spinner";
 import { callApi, firstErrorMessage, type Block, type ListItem } from "../lib/api";
 
@@ -8,25 +9,37 @@ function isTaskItem(item: ListItem) {
   return item.done !== undefined;
 }
 
+function premierExtrait(item: ListItem): { texte: string; ligne: number | null } | undefined {
+  const extraits = item.meta?.extraits;
+  return Array.isArray(extraits) ? (extraits[0] as { texte: string; ligne: number | null }) : undefined;
+}
+
 export default function SearchBar() {
+  const router = useRouter();
   const [message, setMessage] = useState("");
   const [block, setBlock] = useState<Block | null>(null);
   const [isError, setIsError] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [documentOuvert, setDocumentOuvert] = useState<{ name: string; body: string } | null>(null);
+  // Une recherche lancee pendant qu'une precedente est encore en vol ne
+  // doit jamais se faire ecraser par la reponse tardive de celle-ci -
+  // bug trouve par Chris ("je tape budget je retombe sur le texte
+  // d'anissa"), meme mecanisme que documents/page.tsx.
+  const requestTokenRef = useRef(0);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const texte = message.trim();
     if (!texte || isLoading) return;
 
+    const token = ++requestTokenRef.current;
     setIsLoading(true);
     setBlock(null);
     setIsError(false);
-    setDocumentOuvert(null);
     setMessage("");
 
     const reponse = await callApi("/ask", { message: texte });
+    if (requestTokenRef.current !== token) return;
+
     const erreur = firstErrorMessage(reponse);
     setIsError(erreur !== null);
     if (erreur) {
@@ -44,14 +57,20 @@ export default function SearchBar() {
     if (bloc) setBlock(bloc);
   }
 
-  async function handleOpenDocument(item: ListItem) {
-    const reponse = await callApi("/documents/read", { nom_fichier: item.id });
-    const erreur = firstErrorMessage(reponse);
-    const bloc = reponse.blocks[0];
-    setDocumentOuvert({
-      name: item.label,
-      body: erreur ?? (bloc && bloc.kind === "text" ? bloc.body : ""),
-    });
+  function ouvrirDansDocuments(item: ListItem) {
+    // Emmene directement au bon endroit dans la salle Documents plutot
+    // que d'ouvrir un apercu limite dans ce petit widget - demande de
+    // Chris ("m'amener directement dans le bon niveau de l'application
+    // document").
+    const params = new URLSearchParams();
+    if (item.meta?.type === "dossier") {
+      params.set("dossier", item.id);
+    } else {
+      params.set("fichier", item.id);
+      const extrait = premierExtrait(item);
+      if (extrait?.ligne) params.set("ligne", String(extrait.ligne));
+    }
+    router.push(`/documents?${params.toString()}`);
   }
 
   return (
@@ -69,19 +88,7 @@ export default function SearchBar() {
           </div>
         )}
 
-        {documentOuvert && (
-          <div className="flex max-h-64 flex-col gap-2 overflow-y-auto rounded-xl border border-border bg-surface p-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-medium text-foreground">{documentOuvert.name}</h2>
-              <button onClick={() => setDocumentOuvert(null)} className="text-xs text-accent">
-                Fermer
-              </button>
-            </div>
-            <p className="whitespace-pre-wrap text-sm text-foreground/80">{documentOuvert.body}</p>
-          </div>
-        )}
-
-        {block && block.kind === "list" && !documentOuvert && (
+        {block && block.kind === "list" && (
           <ul className="flex max-h-64 flex-col gap-2 overflow-y-auto">
             {block.items.map((item) =>
               isTaskItem(item) ? (
@@ -109,15 +116,20 @@ export default function SearchBar() {
               ) : (
                 <li key={item.id}>
                   <button
-                    onClick={() =>
-                      item.meta?.type === "dossier" ? undefined : handleOpenDocument(item)
-                    }
-                    disabled={item.meta?.type === "dossier"}
-                    className="flex w-full items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-left disabled:opacity-60"
+                    onClick={() => ouvrirDansDocuments(item)}
+                    className="flex w-full items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-left"
                   >
                     <span className="shrink-0">{item.meta?.type === "dossier" ? "📁" : "📄"}</span>
-                    <span className="flex-1 truncate text-sm text-foreground">{item.label}</span>
-                    {item.meta?.type !== "dossier" && <span className="shrink-0 text-foreground/40">›</span>}
+                    <span className="flex-1 truncate text-sm">
+                      <span className="block truncate text-foreground">{item.label}</span>
+                      {premierExtrait(item) && (
+                        <span className="block truncate text-xs text-foreground/50">
+                          {premierExtrait(item)?.ligne ? `L${premierExtrait(item)?.ligne} : ` : ""}
+                          {premierExtrait(item)?.texte}
+                        </span>
+                      )}
+                    </span>
+                    <span className="shrink-0 text-xs text-accent">Voir dans Documents ›</span>
                   </button>
                 </li>
               ),
