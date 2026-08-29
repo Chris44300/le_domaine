@@ -548,6 +548,41 @@ toucher à l'orchestrateur ni à Telegram.
     sur les trois documents exacts de Chris : xlsx 3/3, PDF 8/8 (page 5
     confirmée par son propre marqueur), PDF copropriété 28/28. 411 tests
     verts, build propre.
+  - [x] 3bis.2decies (ajouté le 2026-08-29, neuvième round - premier test
+        via Tailscale/Vercel réel) :
+    - Réponse Q&A déplacée juste sous la barre de recherche/question,
+      plus après tout le corps du document.
+    - **Vrai bug trouvé en lisant les logs réels de Chris**
+      (`logs/conversation.log`, canal `api-rest`) : taper un mot seul
+      comme "anissa" dans la recherche du Domaine résout bien un dossier
+      réel par recherche floue et affiche son contenu côté Telegram,
+      mais l'action générique retournée
+      (`action_depuis_contexte_dossier`) ne portait jamais le nom du
+      dossier résolu dans son payload - le majordome web ne pouvait donc
+      jamais reconstruire de bloc cliquable pour ce cas, même en cas de
+      succès. Corrigé à la source
+      (`executer_action_fichier_depuis_contexte_dossier` retourne
+      désormais un `ExecutionResult` explicite avec
+      `action="lister_fichiers"` + `dossier_relatif`, texte Telegram
+      inchangé). Vérifié : "anissa" retourne maintenant 3 résultats
+      cliquables. **Limite honnête signalée à Chris** : d'autres
+      formulations plus proches du langage naturel ("cherche anissa",
+      "y a-t-il des documents avec budget") échouent encore plus tôt,
+      dans la détection d'intention elle-même (pas dans la
+      reconstruction de bloc) - un effort de calibration plus large et
+      continu, pas un correctif ponctuel.
+    - **Découverte via les mêmes logs, non encore résolue** : les
+      téléchargements réussissent bien côté serveur (`ok` dans les logs)
+      mais Chris ne reçoit rien côté navigateur en testant depuis
+      `le-domaine-tau.vercel.app` (HTTPS) vers l'API Tailscale (HTTP) -
+      cohérent avec le blocage "téléchargements non sécurisés" de
+      Chrome sur les téléchargements HTTP déclenchés depuis une page
+      HTTPS. Piste retenue : passer l'API sur HTTPS via les certificats
+      Tailscale natifs (`tailscale cert`/`tailscale serve`) plutôt que de
+      contourner - nécessite une action de Chris (activer les
+      certificats HTTPS dans la console Tailscale) avant de pouvoir
+      avancer côté code.
+    412 tests verts.
 - [x] 3bis.3 Intégrés à l'écran d'accueil : deux nouvelles tuiles
       cliquables (Tâches, Documents) ; Ménage reste en attente de la
       Phase 4.
@@ -648,8 +683,19 @@ depuis le Domaine, où que Chris se trouve.
       (message clair, pas une erreur technique brute) — la base existe
       déjà (`callApi` renvoie un message d'erreur lisible), à vérifier
       que le message reste clair une fois passé par Tailscale.
-- [ ] 5.6 Test réel depuis un téléphone en 4G, hors réseau local — le
+- [~] 5.6 Test réel depuis un téléphone en 4G, hors réseau local — le
       scénario "vacances sans le PC" qui a motivé toute cette réflexion.
+      Premier vrai test fait le 2026-08-29 (Vercel + Tailscale) : la
+      connexion API fonctionne bien à distance, mais a révélé un nouveau
+      problème distinct (voir 3bis.2decies) — les téléchargements de
+      fichiers échouent silencieusement, probablement parce que Chrome
+      bloque les téléchargements HTTP déclenchés depuis une page HTTPS
+      (`le-domaine-tau.vercel.app` en HTTPS → l'API Tailscale en HTTP).
+      Piste retenue : activer les certificats HTTPS natifs de Tailscale
+      (`tailscale cert`), ce qui nécessite d'abord que Chris active
+      l'option "HTTPS Certificates" dans la console d'admin Tailscale.
+      Tant que ce n'est pas fait, 5.6 reste partiel : la lecture/recherche
+      marche à distance, le téléchargement de fichiers non.
 
 **Sortie de la Phase 5 :** le scénario "je suis en vacances, je veux un
 fichier de mon NAS depuis mon téléphone" fonctionne pour de vrai (même si
