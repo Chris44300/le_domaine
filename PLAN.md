@@ -504,6 +504,13 @@ de ce qui existait déjà chez Nigel.
       la demande, une fois ce gabarit stable. Pas de plan détaillé pour
       elles avant que leur tour arrive réellement.
 
+**Idées notées pour plus tard, non priorisées** (Chris, 2026-08-29,
+volontairement pas développées maintenant) :
+- Sélection multiple dans Documents (cocher plusieurs fichiers) pour une
+  action groupée, ex. téléchargement de plusieurs fichiers à la fois.
+- "Envoyer par email" comme action sur un fichier, une fois qu'une
+  adresse mail sera configurée dans Le Domaine.
+
 ---
 
 ## Phase 9 — Opérations continues (ne s'arrête jamais)
