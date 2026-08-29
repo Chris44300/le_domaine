@@ -41,8 +41,16 @@ export function firstErrorMessage(response: ApiResponse): string | null {
   return bloc && bloc.kind === "error" ? bloc.message : "Erreur inconnue.";
 }
 
-export function buildDownloadUrl(nomFichier: string, dossier: string | null): string {
+function buildFileUrl(endpoint: "download" | "preview", nomFichier: string, dossier: string | null): string {
   const params = new URLSearchParams({ nom_fichier: nomFichier });
   if (dossier) params.set("dossier", dossier);
-  return `${API_URL}/documents/download?${params.toString()}`;
+  return `${API_URL}/documents/${endpoint}?${params.toString()}`;
+}
+
+export function buildDownloadUrl(nomFichier: string, dossier: string | null): string {
+  return buildFileUrl("download", nomFichier, dossier);
+}
+
+export function buildPreviewUrl(nomFichier: string, dossier: string | null): string {
+  return buildFileUrl("preview", nomFichier, dossier);
 }
