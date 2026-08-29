@@ -6,10 +6,22 @@ import Spinner from "../components/Spinner";
 import { buildDownloadUrl, buildPreviewUrl, callApi, firstErrorMessage, type ListItem } from "../lib/api";
 
 type Selection =
-  | { item: ListItem; kind: "read" | "summarize"; body: string }
+  | { item: ListItem; kind: "read" | "summarize"; body: string; warning?: string }
   | { item: ListItem; kind: "image" };
 
-type QaEntry = { question: string; answer: string };
+type QaEntry = { question: string; answer: string; warning?: string };
+
+type Extrait = { texte: string; ligne: number | null };
+
+type ReaderView = {
+  item: ListItem;
+  ligne: number;
+  body: string;
+  fenetreDebut: number;
+  fenetreFin: number;
+  totalLignes: number;
+  warning?: string;
+};
 
 function joinPath(base: string, name: string) {
   return base ? `${base}/${name}` : name;
@@ -31,11 +43,20 @@ export default function DocumentsPage() {
   const [qaHistory, setQaHistory] = useState<QaEntry[]>([]);
   const [qaInput, setQaInput] = useState("");
   const [qaLoading, setQaLoading] = useState(false);
+  const [reader, setReader] = useState<ReaderView | null>(null);
+  const [readerLoading, setReaderLoading] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [gallerySelection, setGallerySelection] = useState<ListItem[] | null>(null);
 
   async function loadFolder(path: string) {
     setIsLoading(true);
     setError(null);
     setSelection(null);
+    setReader(null);
+    setSelectMode(false);
+    setSelectedIds(new Set());
+    setGallerySelection(null);
     setSearchActive(false);
     setContentSearchActive(false);
     setQuery("");
@@ -66,6 +87,10 @@ export default function DocumentsPage() {
     setIsLoading(true);
     setError(null);
     setSelection(null);
+    setReader(null);
+    setSelectMode(false);
+    setSelectedIds(new Set());
+    setGallerySelection(null);
     const reponse = await callApi(`/documents/${endpoint}`, { mot_cle: motCle, dossier: currentPath || null });
     const message = firstErrorMessage(reponse);
     if (message) {
@@ -97,6 +122,7 @@ export default function DocumentsPage() {
     setDocSearchResults(null);
     setQaHistory([]);
     setQaInput("");
+    setReader(null);
     if (item.meta?.image) {
       setSelection({ item, kind: "image" });
       return;
@@ -138,9 +164,59 @@ export default function DocumentsPage() {
       setError(message);
     } else {
       const bloc = reponse.blocks[0];
-      setSelection({ item, kind, body: bloc && bloc.kind === "text" ? bloc.body : "" });
+      setSelection({
+        item,
+        kind,
+        body: bloc && bloc.kind === "text" ? bloc.body : "",
+        warning: bloc && bloc.kind === "text" ? bloc.warning : undefined,
+      });
     }
     setLoadingKey(null);
+  }
+
+  async function openReaderAt(item: ListItem, ligne: number, fenetreDebut?: number, fenetreFin?: number) {
+    setReaderLoading(true);
+    setError(null);
+    const { nomFichier, dossier } = resolveFileTarget(item);
+    const reponse = await callApi("/documents/read-around", {
+      nom_fichier: nomFichier,
+      dossier,
+      ligne,
+      fenetre_debut: fenetreDebut ?? null,
+      fenetre_fin: fenetreFin ?? null,
+    });
+    const message = firstErrorMessage(reponse);
+    if (message) {
+      setError(message);
+    } else {
+      const bloc = reponse.blocks[0];
+      if (bloc && bloc.kind === "text") {
+        setReader({
+          item,
+          ligne,
+          body: bloc.body,
+          fenetreDebut: bloc.fenetre_debut ?? ligne,
+          fenetreFin: bloc.fenetre_fin ?? ligne,
+          totalLignes: bloc.total_lignes ?? 0,
+          warning: bloc.warning,
+        });
+      }
+    }
+    setReaderLoading(false);
+  }
+
+  function readerFenetre(direction: 1 | -1) {
+    if (!reader) return;
+    const taille = reader.fenetreFin - reader.fenetreDebut + 1;
+    if (direction === 1) {
+      const debut = reader.fenetreFin + 1;
+      if (reader.totalLignes && debut > reader.totalLignes) return;
+      openReaderAt(reader.item, reader.ligne, debut, debut + taille - 1);
+    } else {
+      const fin = reader.fenetreDebut - 1;
+      if (fin < 1) return;
+      openReaderAt(reader.item, reader.ligne, Math.max(1, fin - taille + 1), fin);
+    }
   }
 
   async function askQuestion(event: React.FormEvent<HTMLFormElement>) {
@@ -169,6 +245,59 @@ export default function DocumentsPage() {
   function downloadHref(item: ListItem) {
     const { nomFichier, dossier } = resolveFileTarget(item);
     return buildDownloadUrl(nomFichier, dossier);
+  }
+
+  const images = (gallerySelection ?? items).filter((item) => item.meta?.image);
+  const imageIndex = selection?.kind === "image" ? images.findIndex((image) => image.id === selection.item.id) : -1;
+
+  function showImage(delta: number) {
+    if (imageIndex < 0) return;
+    const cible = imageIndex + delta;
+    if (cible < 0 || cible >= images.length) return;
+    setSelection({ item: images[cible], kind: "image" });
+  }
+
+  function toggleSelected(id: string) {
+    setSelectedIds((precedent) => {
+      const suivant = new Set(precedent);
+      if (suivant.has(id)) {
+        suivant.delete(id);
+      } else {
+        suivant.add(id);
+      }
+      return suivant;
+    });
+  }
+
+  function toggleSelectMode() {
+    setSelectMode((actif) => !actif);
+    setSelectedIds(new Set());
+  }
+
+  const itemsSelectionnes = items.filter((item) => selectedIds.has(item.id));
+
+  function openGallery() {
+    const imagesSelectionnees = itemsSelectionnes.filter((item) => item.meta?.image);
+    if (imagesSelectionnees.length === 0) return;
+    setGallerySelection(imagesSelectionnees);
+    setSelection({ item: imagesSelectionnees[0], kind: "image" });
+  }
+
+  async function downloadSelection() {
+    // Pas encore de zip cote serveur (a faire plus tard, en reprenant la
+    // logique de decoupage par taille deja presente cote Telegram) - en
+    // attendant, on declenche un telechargement par fichier. Le navigateur
+    // demandera une confirmation au-dela de quelques fichiers, c'est un
+    // comportement natif normal, pas un bug.
+    for (const item of itemsSelectionnes) {
+      const lien = document.createElement("a");
+      lien.href = downloadHref(item);
+      lien.download = item.label;
+      document.body.appendChild(lien);
+      lien.click();
+      lien.remove();
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    }
   }
 
   const segments = currentPath ? currentPath.split("/") : [];
@@ -237,36 +366,134 @@ export default function DocumentsPage() {
         </button>
       )}
 
+      {!isLoading && !selection && !reader && items.some((item) => item.meta?.type !== "dossier") && (
+        <button onClick={toggleSelectMode} className="self-start text-xs text-accent underline">
+          {selectMode ? "Annuler la sélection" : "☑️ Sélectionner plusieurs documents"}
+        </button>
+      )}
+
+      {selectMode && selectedIds.size > 0 && (
+        <div className="flex items-center justify-between gap-2 rounded-xl border border-accent bg-surface px-4 py-2 text-sm">
+          <span className="text-foreground">{selectedIds.size} sélectionné(s)</span>
+          <div className="flex gap-2">
+            {itemsSelectionnes.some((item) => item.meta?.image) && (
+              <button onClick={openGallery} className="rounded-full border border-border px-3 py-1 text-xs text-foreground">
+                Voir
+              </button>
+            )}
+            <button onClick={downloadSelection} className="rounded-full border border-border px-3 py-1 text-xs text-foreground">
+              ⬇ Télécharger
+            </button>
+          </div>
+        </div>
+      )}
+
       {error && (
         <p className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
           {error}
         </p>
       )}
 
-      {selection && (
+      {reader && (
+        <div className="flex flex-col gap-3 rounded-xl border border-accent bg-surface p-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-medium text-foreground">{reader.item.label}</h2>
+            <button onClick={() => setReader(null)} className="text-xs text-accent">
+              Fermer
+            </button>
+          </div>
+
+          {reader.warning && (
+            <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
+              {reader.warning}
+            </p>
+          )}
+
+          <p className="max-h-96 overflow-y-auto whitespace-pre-wrap text-sm text-foreground/80">
+            {reader.body}
+          </p>
+
+          <div className="flex items-center justify-between border-t border-border pt-3 text-xs text-foreground/70">
+            <button
+              onClick={() => readerFenetre(-1)}
+              disabled={readerLoading || reader.fenetreDebut <= 1}
+              className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-foreground disabled:opacity-40"
+            >
+              {readerLoading && <Spinner />}← Contexte précédent
+            </button>
+            <span>
+              Lignes {reader.fenetreDebut}–{reader.fenetreFin}
+              {reader.totalLignes ? ` / ${reader.totalLignes}` : ""}
+            </span>
+            <button
+              onClick={() => readerFenetre(1)}
+              disabled={readerLoading || (reader.totalLignes > 0 && reader.fenetreFin >= reader.totalLignes)}
+              className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-foreground disabled:opacity-40"
+            >
+              Contexte suivant →{readerLoading && <Spinner />}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!reader && selection && (
         <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-4">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-medium text-foreground">
               {selection.kind === "summarize" ? "Résumé — " : ""}
               {selection.item.label}
             </h2>
-            <button onClick={() => setSelection(null)} className="text-xs text-accent">
+            <button
+              onClick={() => {
+                setSelection(null);
+                setGallerySelection(null);
+              }}
+              className="text-xs text-accent"
+            >
               Fermer
             </button>
           </div>
 
           {selection.kind === "image" ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={(() => {
-                const { nomFichier, dossier } = resolveFileTarget(selection.item);
-                return buildPreviewUrl(nomFichier, dossier);
-              })()}
-              alt={selection.item.label}
-              className="max-h-96 w-full rounded-lg object-contain"
-            />
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={(() => {
+                  const { nomFichier, dossier } = resolveFileTarget(selection.item);
+                  return buildPreviewUrl(nomFichier, dossier);
+                })()}
+                alt={selection.item.label}
+                className="max-h-96 w-full rounded-lg object-contain"
+              />
+              {images.length > 1 && (
+                <div className="flex items-center justify-between text-xs text-foreground/70">
+                  <button
+                    onClick={() => showImage(-1)}
+                    disabled={imageIndex <= 0}
+                    className="rounded-full border border-border px-3 py-1 text-foreground disabled:opacity-40"
+                  >
+                    ← Précédente
+                  </button>
+                  <span>
+                    {imageIndex + 1} / {images.length}
+                  </span>
+                  <button
+                    onClick={() => showImage(1)}
+                    disabled={imageIndex >= images.length - 1}
+                    className="rounded-full border border-border px-3 py-1 text-foreground disabled:opacity-40"
+                  >
+                    Suivante →
+                  </button>
+                </div>
+              )}
+            </>
           ) : (
             <>
+              {selection.warning && (
+                <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
+                  {selection.warning}
+                </p>
+              )}
               <form onSubmit={searchInDocument} className="flex gap-2">
                 <input
                   type="text"
@@ -302,7 +529,16 @@ export default function DocumentsPage() {
                 <ul className="max-h-96 overflow-y-auto text-sm text-foreground/80">
                   {docSearchResults.map((occurrence) => (
                     <li key={occurrence.id} className="border-b border-border/50 py-1.5 last:border-0">
-                      {occurrence.label}
+                      {typeof occurrence.meta?.ligne === "number" ? (
+                        <button
+                          onClick={() => openReaderAt(selection.item, occurrence.meta!.ligne as number)}
+                          className="text-left hover:text-accent"
+                        >
+                          {occurrence.label}
+                        </button>
+                      ) : (
+                        occurrence.label
+                      )}
                     </li>
                   ))}
                   {docSearchResults.length === 0 && (
@@ -364,8 +600,18 @@ export default function DocumentsPage() {
                 ) : (
                   <div className="flex flex-col gap-2 rounded-xl border border-border bg-surface px-4 py-3">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="flex-1 truncate text-sm text-foreground">
-                        {item.meta?.image ? "🖼️" : "📄"} {item.label}
+                      <span className="flex flex-1 items-center gap-2 truncate text-sm text-foreground">
+                        {selectMode && (
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(item.id)}
+                            onChange={() => toggleSelected(item.id)}
+                            className="shrink-0"
+                          />
+                        )}
+                        <span className="truncate">
+                          {item.meta?.image ? "🖼️" : "📄"} {item.label}
+                        </span>
                       </span>
                       <div className="flex shrink-0 gap-2">
                         {item.meta?.image ? (
@@ -406,11 +652,20 @@ export default function DocumentsPage() {
                     </div>
                     {contentSearchActive &&
                       Array.isArray(item.meta?.extraits) &&
-                      (item.meta.extraits as string[]).length > 0 && (
+                      (item.meta.extraits as Extrait[]).length > 0 && (
                         <ul className="flex flex-col gap-0.5 pl-1 text-xs text-foreground/60">
-                          {(item.meta.extraits as string[]).slice(0, 2).map((extrait, index) => (
+                          {(item.meta.extraits as Extrait[]).slice(0, 2).map((extrait, index) => (
                             <li key={index} className="truncate">
-                              {extrait}
+                              {extrait.ligne !== null ? (
+                                <button
+                                  onClick={() => openReaderAt(item, extrait.ligne as number)}
+                                  className="text-left underline decoration-dotted hover:text-accent"
+                                >
+                                  L{extrait.ligne} : {extrait.texte}
+                                </button>
+                              ) : (
+                                extrait.texte
+                              )}
                             </li>
                           ))}
                         </ul>

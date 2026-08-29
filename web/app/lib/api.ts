@@ -8,7 +8,15 @@ export type ListItem = {
 };
 
 export type Block =
-  | { kind: "text"; title?: string; body: string }
+  | {
+      kind: "text";
+      title?: string;
+      body: string;
+      warning?: string;
+      fenetre_debut?: number;
+      fenetre_fin?: number;
+      total_lignes?: number;
+    }
   | { kind: "list"; items: ListItem[] }
   | { kind: "error"; message: string };
 
