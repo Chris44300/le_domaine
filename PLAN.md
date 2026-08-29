@@ -533,6 +533,21 @@ toucher à l'orchestrateur ni à Telegram.
     ouvert, pagination fonctionnelle sur le document exact montré en
     capture par Chris (6 pages, saut direct à la page 5). 409 tests
     verts, build de production propre.
+  - [x] 3bis.2nonies (ajouté le 2026-08-29, huitième round) : le
+    découpage générique de 3bis.2octies ne correspondait toujours pas
+    aux vraies pages/feuilles (un PDF de 8 pages devenait 6 "pages", un
+    xlsx de 3 feuilles devenait 4). Corrigé en découpant en priorité aux
+    marqueurs déjà présents dans le texte extrait ("=== Page N/M ==="
+    pour les PDF, "=== Feuille : X ===" pour les xlsx) plutôt que par une
+    taille de caractères arbitraire - une page de l'appli correspond
+    désormais exactement à une vraie page PDF, une feuille Excel devient
+    une page. Boutons de saut direct par onglet Excel ajoutés,
+    distincts de la pagination générale (demande explicite de Chris).
+    Recherche mot-clé et question fusionnées en une seule barre avec un
+    bascule, au lieu de deux formulaires empilés en permanence. Vérifié
+    sur les trois documents exacts de Chris : xlsx 3/3, PDF 8/8 (page 5
+    confirmée par son propre marqueur), PDF copropriété 28/28. 411 tests
+    verts, build propre.
 - [x] 3bis.3 Intégrés à l'écran d'accueil : deux nouvelles tuiles
       cliquables (Tâches, Documents) ; Ménage reste en attente de la
       Phase 4.
