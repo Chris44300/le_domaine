@@ -965,6 +965,20 @@ function DocumentsPageInner() {
                 )}
               </form>
 
+              {/* Juste sous la barre, pas tout en bas apres le document
+                  entier - retour de Chris : la reponse arrivait apres tout
+                  le contenu, trop loin de la question posee. */}
+              {qaHistory.length > 0 && (
+                <div className="flex flex-col gap-2 rounded-lg border border-border bg-surface/50 p-3">
+                  {qaHistory.map((entry, index) => (
+                    <div key={index} className="flex flex-col gap-1 text-sm">
+                      <p className="font-medium text-foreground">Q. {entry.question}</p>
+                      <p className="text-foreground/80">{entry.answer}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {docQueryMode === "motcle" && docSearchResults ? (
                 <ul className="max-h-96 overflow-y-auto text-sm text-foreground/80">
                   {docSearchResults.map((occurrence) => (
@@ -1064,17 +1078,6 @@ function DocumentsPageInner() {
                       )}
                     </div>
                   )}
-                </div>
-              )}
-
-              {qaHistory.length > 0 && (
-                <div className="flex flex-col gap-2 border-t border-border pt-3">
-                  {qaHistory.map((entry, index) => (
-                    <div key={index} className="flex flex-col gap-1 text-sm">
-                      <p className="font-medium text-foreground">Q. {entry.question}</p>
-                      <p className="text-foreground/80">{entry.answer}</p>
-                    </div>
-                  ))}
                 </div>
               )}
             </>
