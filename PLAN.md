@@ -394,6 +394,41 @@ toucher à l'orchestrateur ni à Telegram.
     Vérifié en conditions réelles dans le navigateur, de bout en bout,
     sur le même document dégradé que Chris avait signalé. 391 tests
     verts côté Nigel.
+  - [x] 3bis.2quinquies (ajouté le 2026-08-29, deux rounds de retours
+        supplémentaires après usage réel plus poussé) :
+    - Bug réel trouvé et corrigé : cliquer sur Résumer pendant qu'une
+      recherche in-document était encore active affichait le résumé en
+      coulisses mais l'écran restait bloqué sur l'ancienne liste
+      d'occurrences (`openFile` ne réinitialisait jamais
+      `docFilter`/`docSearchResults`, contrairement à `openSelection`).
+    - Navigation repensée : un bouton unique "← Retour" dans la barre du
+      haut remplace les boutons "Fermer" dispersés dans chaque panneau -
+      un seul endroit prévisible pour revenir en arrière. La lecture
+      contextuelle propose Lire/Résumer/Télécharger directement dans son
+      en-tête (actions explicites) plutôt que de rouvrir automatiquement
+      le début du document en arrière-plan à la fermeture (première
+      tentative jugée par Chris "pas très intuitive" - remplacée).
+    - Course critique corrigée (jeton de navigation `requestTokenRef`) :
+      cliquer sur Résumer puis naviguer ailleurs pendant que la requête
+      LLM tourne encore ne force plus l'affichage à revenir dessus une
+      fois arrivée - la réponse tardive est ignorée. Même mécanisme pour
+      le chat Q&A. Les boutons Lire/Résumer de la liste ne se
+      désactivent plus tous ensemble dès qu'un chargement est en cours
+      (seulement celui concerné), ce qui permet justement de naviguer
+      pendant l'attente au lieu d'être bloqué.
+    - Avertissement réseau lent : au-delà de 10s sur un résumé ou une
+      question (les deux seuls appels LLM), bannière "M'avertir quand
+      c'est terminé" - si accepté puis parti voir autre chose, le
+      résultat tardif affiche une bannière "c'est prêt, voulez-vous
+      regarder ?" au lieu d'être jeté silencieusement. Les vraies
+      notifications système (onglet fermé/arrière-plan) demanderaient un
+      service worker + l'API Notification - non construit, noté en
+      Phase 8.
+    Vérifié en conditions réelles : bug de résumé masqué reproduit et
+    corrigé, fermeture de la lecture contextuelle revenant exactement
+    aux résultats de recherche, clic Résumer suivi immédiatement d'un
+    clic Lire sur un autre document confirmant que le résumé tardif ne
+    force plus l'écran. Build de production propre.
 - [x] 3bis.3 Intégrés à l'écran d'accueil : deux nouvelles tuiles
       cliquables (Tâches, Documents) ; Ménage reste en attente de la
       Phase 4.
@@ -570,6 +605,13 @@ volontairement pas développées maintenant) :
   Telegram, à porter sur l'API.
 - "Envoyer par email" comme action sur un fichier, une fois qu'une
   adresse mail sera configurée dans Le Domaine.
+- Vraies notifications système pour les tâches longues (résumé, Q&A) une
+  fois l'utilisateur parti de l'onglet ou de l'application - la version
+  actuelle (voir 3bis.2quinquies) affiche déjà une bannière discrète
+  "c'est prêt" tant qu'on reste dans l'app, mais une notification après
+  fermeture de l'onglet demanderait un service worker et l'API
+  Notification (permission navigateur, infrastructure PWA) - plus lourd
+  que ce qui a été nécessaire jusqu'ici, à envisager si le besoin revient.
 
 ---
 
@@ -660,3 +702,18 @@ années sans devenir un fardeau.
   prévue "pour plus tard" en Phase 8, a finalement été avancée maintenant
   à la demande explicite de Chris (cas d'usage album photo). Le zip
   serveur reste différé.
+- 2026-08-29 : troisième round de retours (3bis.2quinquies, première
+  moitié) — bug réel du résumé masqué par une recherche in-document
+  périmée, corrigé à la racine. Sélection de dossier entier (récursive,
+  côté client) et vue grille dans l'aperçu photo ajoutées à la demande
+  de Chris, en avance sur Phase 8.
+- 2026-08-29 : quatrième round (3bis.2quinquies, seconde moitié) —
+  Chris a signalé que la fermeture de la lecture contextuelle "affiche
+  un autre texte", pas intuitif : c'était l'effet de bord d'un correctif
+  du round précédent (ouverture automatique du début du document en
+  arrière-plan). Retiré, remplacé par un bouton "← Retour" unique dans
+  la nav du haut et des actions explicites dans l'en-tête de la lecture
+  contextuelle. Bug de course corrigé au passage (résumé tardif forçant
+  l'écran après un "retour") via un jeton de navigation - illustre
+  l'intérêt de garder une correction ciblée plutôt qu'un correctif large
+  quand l'effet de bord n'est pas évident à l'avance.
