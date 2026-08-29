@@ -20,6 +20,7 @@ export type Block =
       sections?: ListItem[];
       page?: number;
       total_pages?: number;
+      feuilles?: ListItem[];
     }
   | { kind: "list"; items: ListItem[] }
   | { kind: "error"; message: string };

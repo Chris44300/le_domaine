@@ -14,6 +14,7 @@ type Selection =
       warning?: string;
       page?: number;
       totalPages?: number;
+      feuilles?: ListItem[];
     }
   | { item: ListItem; kind: "image" };
 
@@ -62,6 +63,7 @@ function DocumentsPageInner() {
   const [docFilter, setDocFilter] = useState("");
   const [docSearchResults, setDocSearchResults] = useState<ListItem[] | null>(null);
   const [docSearchLoading, setDocSearchLoading] = useState(false);
+  const [docQueryMode, setDocQueryMode] = useState<"motcle" | "question">("motcle");
   const [qaHistory, setQaHistory] = useState<QaEntry[]>([]);
   const [qaInput, setQaInput] = useState("");
   const [qaLoading, setQaLoading] = useState(false);
@@ -219,6 +221,12 @@ function DocumentsPageInner() {
     openFile(item, "read");
   }
 
+  function toggleDocQueryMode(mode: "motcle" | "question") {
+    setDocQueryMode(mode);
+    setDocFilter("");
+    setDocSearchResults(null);
+  }
+
   async function searchInDocument(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selection || selection.kind === "image") return;
@@ -262,6 +270,7 @@ function DocumentsPageInner() {
       setQaInput("");
       setPageSelectorOuvert(false);
       setPageInput("");
+      setDocQueryMode("motcle");
     }
 
     // Le résumé passe par un LLM, et la lecture peut déclencher un OCR
@@ -294,6 +303,7 @@ function DocumentsPageInner() {
       warning: bloc && bloc.kind === "text" ? bloc.warning : undefined,
       page: bloc && bloc.kind === "text" ? bloc.page : undefined,
       totalPages: bloc && bloc.kind === "text" ? bloc.total_pages : undefined,
+      feuilles: bloc && bloc.kind === "text" ? bloc.feuilles : undefined,
     };
 
     if (requestTokenRef.current === token) {
@@ -900,15 +910,39 @@ function DocumentsPageInner() {
                 </p>
               )}
 
-              <form onSubmit={searchInDocument} className="flex gap-2">
+              {/* Une seule barre pour les deux besoins (mot-clé déterministe
+                  vs question groundée par LLM) - avoir les deux formes
+                  affichées en permanence perturbait (retour de Chris). */}
+              <div className="flex gap-3 text-xs">
+                <button
+                  onClick={() => toggleDocQueryMode("motcle")}
+                  className={docQueryMode === "motcle" ? "font-medium text-accent underline" : "text-foreground/60"}
+                >
+                  🔍 Mot-clé
+                </button>
+                <button
+                  onClick={() => toggleDocQueryMode("question")}
+                  className={docQueryMode === "question" ? "font-medium text-accent underline" : "text-foreground/60"}
+                >
+                  💬 Question
+                </button>
+              </div>
+
+              <form onSubmit={docQueryMode === "motcle" ? searchInDocument : askQuestion} className="flex gap-2">
                 <input
                   type="text"
-                  value={docFilter}
-                  onChange={(event) => setDocFilter(event.target.value)}
-                  placeholder="Chercher un mot-clé dans ce document…"
+                  value={docQueryMode === "motcle" ? docFilter : qaInput}
+                  onChange={(event) =>
+                    docQueryMode === "motcle" ? setDocFilter(event.target.value) : setQaInput(event.target.value)
+                  }
+                  placeholder={
+                    docQueryMode === "motcle"
+                      ? "Chercher un mot-clé dans ce document…"
+                      : "Poser une question sur ce document…"
+                  }
                   className="flex-1 rounded-full border border-border bg-surface px-4 py-2 text-sm text-foreground outline-none focus:border-accent"
                 />
-                {docSearchResults ? (
+                {docQueryMode === "motcle" && docSearchResults ? (
                   <button
                     type="button"
                     onClick={() => {
@@ -922,16 +956,16 @@ function DocumentsPageInner() {
                 ) : (
                   <button
                     type="submit"
-                    disabled={docSearchLoading || !docFilter.trim()}
+                    disabled={docQueryMode === "motcle" ? docSearchLoading || !docFilter.trim() : qaLoading || !qaInput.trim()}
                     className="flex items-center gap-1.5 rounded-full bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
                   >
-                    {docSearchLoading && <Spinner />}
-                    Chercher
+                    {(docQueryMode === "motcle" ? docSearchLoading : qaLoading) && <Spinner />}
+                    {docQueryMode === "motcle" ? "Chercher" : "Demander"}
                   </button>
                 )}
               </form>
 
-              {docSearchResults ? (
+              {docQueryMode === "motcle" && docSearchResults ? (
                 <ul className="max-h-96 overflow-y-auto text-sm text-foreground/80">
                   {docSearchResults.map((occurrence) => (
                     <li key={occurrence.id} className="border-b border-border/50 py-1.5 last:border-0">
@@ -953,6 +987,24 @@ function DocumentsPageInner() {
                 </ul>
               ) : (
                 <div className="flex flex-col gap-2">
+                  {selection.kind === "read" && selection.feuilles && selection.feuilles.length > 1 && (
+                    <div className="flex flex-wrap gap-2">
+                      {selection.feuilles.map((feuille) => (
+                        <button
+                          key={feuille.id}
+                          onClick={() => openFile(selection.item, "read", feuille.meta!.page as number)}
+                          disabled={loadingKey !== null}
+                          className={`rounded-full border px-3 py-1 text-xs disabled:opacity-50 ${
+                            feuille.meta!.page === selection.page
+                              ? "border-accent text-accent"
+                              : "border-border text-foreground hover:border-accent"
+                          }`}
+                        >
+                          📄 {feuille.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   <p className="max-h-96 overflow-y-auto whitespace-pre-wrap text-sm text-foreground/80">
                     {selection.body}
                   </p>
@@ -1015,31 +1067,16 @@ function DocumentsPageInner() {
                 </div>
               )}
 
-              <div className="flex flex-col gap-2 border-t border-border pt-3">
-                {qaHistory.map((entry, index) => (
-                  <div key={index} className="flex flex-col gap-1 text-sm">
-                    <p className="font-medium text-foreground">Q. {entry.question}</p>
-                    <p className="text-foreground/80">{entry.answer}</p>
-                  </div>
-                ))}
-                <form onSubmit={askQuestion} className="flex gap-2">
-                  <input
-                    type="text"
-                    value={qaInput}
-                    onChange={(event) => setQaInput(event.target.value)}
-                    placeholder="Poser une question sur ce document…"
-                    className="flex-1 rounded-full border border-border bg-surface px-4 py-2 text-sm text-foreground outline-none focus:border-accent"
-                  />
-                  <button
-                    type="submit"
-                    disabled={qaLoading || !qaInput.trim()}
-                    className="flex items-center gap-1.5 rounded-full bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-                  >
-                    {qaLoading && <Spinner />}
-                    Demander
-                  </button>
-                </form>
-              </div>
+              {qaHistory.length > 0 && (
+                <div className="flex flex-col gap-2 border-t border-border pt-3">
+                  {qaHistory.map((entry, index) => (
+                    <div key={index} className="flex flex-col gap-1 text-sm">
+                      <p className="font-medium text-foreground">Q. {entry.question}</p>
+                      <p className="text-foreground/80">{entry.answer}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </>
           )}
         </div>
