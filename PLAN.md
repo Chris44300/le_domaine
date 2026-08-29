@@ -336,6 +336,29 @@ toucher à l'orchestrateur ni à Telegram.
         profonds vers Documents plutôt que de dupliquer la navigation.
         Vérifié en conditions réelles (navigation 2 niveaux, lecture en
         profondeur, téléchargement d'un vrai PDF). 368 tests verts.
+  - [x] 3bis.2ter (ajouté le 2026-08-29, retours de Chris après test
+        réel) : quatre capacités de plus, toutes déjà solides côté
+        Telegram, jamais exposées côté API jusqu'ici :
+    - Aperçu image (`GET /documents/preview`, inline) — fichiers image
+      détectés (`meta.image`), bouton "Aperçu" au lieu de Lire/Résumer.
+    - Recherche dans le contenu/OCR (`POST /documents/search-content`,
+      `assistant.document_content_search`) — bouton "Rechercher aussi
+      dans le contenu des documents" en plus de la recherche par nom
+      (design volontaire de Chris, gardé par défaut).
+    - Recherche dans un document ouvert (`POST /documents/search-in-file`)
+      — cherche dans le contenu COMPLET, pas le texte tronqué affiché à
+      l'écran (bug trouvé et corrigé en testant : `/read` tronque à
+      MAX_CARACTERES_LECTURE_FICHIER, un mot plus loin dans un long
+      document était invisible).
+    - Chat "poser une question sur ce document" (`POST /documents/question`)
+      — groundé dans le contenu réel (même garde-fou anti-hallucination
+      que Telegram, `FILE_QA_SYSTEM_PROMPT` interdit d'inventer), pas un
+      chat libre.
+    Vérifié en conditions réelles sur les vraies données : aperçu d'une
+    image 2000px, recherche contenu remontant des correspondances OCR
+    profondes, recherche in-document trouvant un mot à la ligne 1169,
+    question groundée vérifiée exacte dans le texte source. 379 tests
+    verts côté Nigel.
 - [x] 3bis.3 Intégrés à l'écran d'accueil : deux nouvelles tuiles
       cliquables (Tâches, Documents) ; Ménage reste en attente de la
       Phase 4.
@@ -586,3 +609,9 @@ années sans devenir un fardeau.
   passage : les routes API dédiées journalisent maintenant aussi (voir
   9.3). Images toujours pas prises en charge par `/documents/read` —
   confirmé, accepté par Chris comme limite connue pour l'instant.
+- 2026-08-29 : le gap image comblé le jour même (3bis.2ter) — aperçu,
+  recherche OCR/contenu, recherche in-document, chat Q&A groundé.
+  Retours UX de Chris après test réel traités dans la foulée : retour
+  tactile au clic (globals.css) et indicateur de chargement précis
+  (Spinner.tsx). Idées "sélection multiple" et "envoi par email" notées
+  en Phase 8, volontairement pas développées maintenant.
