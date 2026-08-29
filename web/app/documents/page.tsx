@@ -12,7 +12,7 @@ type Selection =
       body: string;
       warning?: string;
       ligneTroncature?: number;
-      feuilles?: ListItem[];
+      sections?: ListItem[];
     }
   | { item: ListItem; kind: "image" };
 
@@ -248,7 +248,7 @@ export default function DocumentsPage() {
       body: bloc && bloc.kind === "text" ? bloc.body : "",
       warning: bloc && bloc.kind === "text" ? bloc.warning : undefined,
       ligneTroncature: bloc && bloc.kind === "text" ? bloc.ligne_troncature : undefined,
-      feuilles: bloc && bloc.kind === "text" ? bloc.feuilles : undefined,
+      sections: bloc && bloc.kind === "text" ? bloc.sections : undefined,
     };
 
     if (requestTokenRef.current === token) {
@@ -519,38 +519,40 @@ export default function DocumentsPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-4 px-6 pb-40 pt-16">
+      {/* Rangée 1 : titre de la pièce + retour discret vers le Domaine
+          general (a droite). Rangée 2 : navigation A L'INTERIEUR de
+          Documents (accueil du dossier a gauche, retour arrière contextuel
+          a droite) - deux notions bien distinctes que Chris confondait
+          quand elles étaient mélangées sur une seule ligne. */}
       <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <Link href="/" className="text-sm text-accent">
-            ← Retour au Domaine
-          </Link>
-          <h1 className="text-xl font-semibold text-foreground">Documents</h1>
+        <h1 className="text-xl font-semibold text-foreground">Documents</h1>
+        <Link href="/" className="flex shrink-0 items-center gap-1 text-xs text-foreground/60 hover:text-accent">
+          🏰 Retour au Domaine
+        </Link>
+      </div>
+
+      <nav className="flex items-center justify-between gap-1 text-sm text-foreground/70">
+        <div className="flex flex-wrap items-center gap-1">
+          <button onClick={() => loadFolder("")} className="flex items-center gap-1 hover:text-accent">
+            🏠 Accueil
+          </button>
+          {segments.map((segment, index) => (
+            <span key={index} className="flex items-center gap-1">
+              <span>/</span>
+              <button
+                onClick={() => loadFolder(segments.slice(0, index + 1).join("/"))}
+                className="hover:text-accent"
+              >
+                {segment}
+              </button>
+            </span>
+          ))}
         </div>
         {(reader || selection) && (
-          // A droite, distinct du fil d'Ariane (qui reste a gauche) -
-          // retour de Chris : le bouton retour au milieu du fil d'Ariane
-          // se confondait avec la navigation de dossiers.
-          <button onClick={goBack} className="flex shrink-0 items-center gap-1 text-sm text-accent hover:text-accent">
+          <button onClick={goBack} className="flex shrink-0 items-center gap-1 text-accent hover:text-accent">
             ↩ Retour
           </button>
         )}
-      </div>
-
-      <nav className="flex flex-wrap items-center gap-1 text-sm text-foreground/70">
-        <button onClick={() => loadFolder("")} className="flex items-center gap-1 hover:text-accent">
-          🏠 Accueil
-        </button>
-        {segments.map((segment, index) => (
-          <span key={index} className="flex items-center gap-1">
-            <span>/</span>
-            <button
-              onClick={() => loadFolder(segments.slice(0, index + 1).join("/"))}
-              className="hover:text-accent"
-            >
-              {segment}
-            </button>
-          </span>
-        ))}
       </nav>
 
       <form onSubmit={handleSearch} className="flex gap-2">
@@ -842,15 +844,15 @@ export default function DocumentsPage() {
                 </p>
               )}
 
-              {selection.feuilles && selection.feuilles.length > 1 && (
+              {selection.sections && selection.sections.length > 1 && (
                 <div className="flex flex-wrap gap-2">
-                  {selection.feuilles.map((feuille) => (
+                  {selection.sections.map((section) => (
                     <button
-                      key={feuille.id}
-                      onClick={() => openReaderAt(selection.item, feuille.meta!.ligne as number)}
+                      key={section.id}
+                      onClick={() => openReaderAt(selection.item, section.meta!.ligne as number)}
                       className="rounded-full border border-border px-3 py-1 text-xs text-foreground hover:border-accent"
                     >
-                      📄 {feuille.label}
+                      📄 {section.label}
                     </button>
                   ))}
                 </div>

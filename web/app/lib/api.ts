@@ -17,7 +17,7 @@ export type Block =
       fenetre_fin?: number;
       total_lignes?: number;
       ligne_troncature?: number;
-      feuilles?: ListItem[];
+      sections?: ListItem[];
     }
   | { kind: "list"; items: ListItem[] }
   | { kind: "error"; message: string };
