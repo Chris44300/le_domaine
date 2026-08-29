@@ -495,6 +495,44 @@ toucher à l'orchestrateur ni à Telegram.
     (PDF scanné de 28 pages, contenu notarié) : OCR réussi de bout en
     bout, 28 pages navigables, saut direct vers la page 15 fonctionnel.
     406 tests verts, build de production propre.
+  - [x] 3bis.2octies (ajouté le 2026-08-29, septième round de retours) :
+    - Barre de recherche du Domaine : bug de course réel corrigé (jeton
+      de navigation, même mécanisme que `documents/page.tsx`) - une
+      réponse tardive à une recherche abandonnée pouvait écraser le
+      résultat d'une recherche plus récente. Repensée pour amener
+      directement dans la salle Documents ("Voir dans Documents ›") au
+      lieu d'un aperçu limité dans le widget - nouveau support de lien
+      profond côté `documents/page.tsx` (`?dossier=`/`?fichier=`/`?ligne=`).
+    - "Lire" utilise désormais une vraie pagination
+      (`POST /documents/read-page`, réutilisant tel quel
+      `assistant.document_reader.prepare_document_reader`, déjà solide
+      côté Telegram) plutôt que la navigation par marqueur du tour
+      précédent - qui ne couvrait que xlsx/pdf et ne fonctionnait pas
+      sur les documents déjà en cache sans les nouveaux marqueurs.
+      Fonctionne pour tous les formats, indépendamment de l'état du
+      cache. Bouton "Page X / Y" révélant un champ pour sauter à une
+      page précise, sans encombrer l'écran de boutons (retour de Chris
+      sur un PDF de 28 pages).
+    - Une seule barre de recherche visible à la fois (dossier ou
+      document, jamais les deux) - elles se chevauchaient et
+      perturbaient.
+    - L'avertissement réseau lent s'applique désormais aussi à la
+      lecture (un OCR peut être aussi long qu'un résumé), pas
+      seulement au résumé.
+    - **Leçon opérationnelle découverte en testant** : après avoir purgé
+      le cache d'erreurs OCR (3bis.2septies), une recherche dans le
+      contenu portant sur un dossier avec plusieurs gros scans jamais
+      encore lus prend très longtemps (chaque document non encore en
+      cache déclenche son propre OCR, synchrone, dans la même requête) -
+      pas un bug, mais un coût de préchauffage réel et notable. Le cache
+      étant alimenté à la demande (pas de réindexation en arrière-plan),
+      value la peine d'ouvrir une fois chaque document d'un dossier
+      avant de compter sur la recherche de contenu dessus.
+    Vérifié en conditions réelles : clic sur un résultat de recherche du
+    Domaine amenant directement dans Documents avec le fichier déjà
+    ouvert, pagination fonctionnelle sur le document exact montré en
+    capture par Chris (6 pages, saut direct à la page 5). 409 tests
+    verts, build de production propre.
 - [x] 3bis.3 Intégrés à l'écran d'accueil : deux nouvelles tuiles
       cliquables (Tâches, Documents) ; Ménage reste en attente de la
       Phase 4.
