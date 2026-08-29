@@ -46,8 +46,11 @@ export default function DocumentsPage() {
   const [reader, setReader] = useState<ReaderView | null>(null);
   const [readerLoading, setReaderLoading] = useState(false);
   const [selectMode, setSelectMode] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectedFiles, setSelectedFiles] = useState<Map<string, ListItem>>(new Map());
+  const [selectedFolders, setSelectedFolders] = useState<Set<string>>(new Set());
+  const [folderSelectLoading, setFolderSelectLoading] = useState<string | null>(null);
   const [gallerySelection, setGallerySelection] = useState<ListItem[] | null>(null);
+  const [gridView, setGridView] = useState(false);
 
   async function loadFolder(path: string) {
     setIsLoading(true);
@@ -55,7 +58,8 @@ export default function DocumentsPage() {
     setSelection(null);
     setReader(null);
     setSelectMode(false);
-    setSelectedIds(new Set());
+    setSelectedFiles(new Map());
+    setSelectedFolders(new Set());
     setGallerySelection(null);
     setSearchActive(false);
     setContentSearchActive(false);
@@ -89,7 +93,8 @@ export default function DocumentsPage() {
     setSelection(null);
     setReader(null);
     setSelectMode(false);
-    setSelectedIds(new Set());
+    setSelectedFiles(new Map());
+    setSelectedFolders(new Set());
     setGallerySelection(null);
     const reponse = await callApi(`/documents/${endpoint}`, { mot_cle: motCle, dossier: currentPath || null });
     const message = firstErrorMessage(reponse);
@@ -111,10 +116,21 @@ export default function DocumentsPage() {
   }
 
   function resolveFileTarget(item: ListItem) {
+    // Les fichiers issus d'une sélection de dossier récursive (voir
+    // toggleFolderSelected) portent leur propre dossier d'origine dans
+    // meta - ils ne vivent pas forcément dans le dossier actuellement
+    // affiché, donc currentPath/searchActive ne s'appliquent pas à eux.
+    if (item.meta && "dossier" in item.meta) {
+      return { nomFichier: item.label, dossier: (item.meta.dossier as string | null) ?? null };
+    }
     return {
       nomFichier: searchActive ? item.id : item.label,
       dossier: searchActive ? null : currentPath || null,
     };
+  }
+
+  function folderPath(item: ListItem) {
+    return searchActive ? item.id : joinPath(currentPath, item.label);
   }
 
   function openSelection(item: ListItem) {
@@ -123,6 +139,7 @@ export default function DocumentsPage() {
     setQaHistory([]);
     setQaInput("");
     setReader(null);
+    setGridView(false);
     if (item.meta?.image) {
       setSelection({ item, kind: "image" });
       return;
@@ -157,6 +174,20 @@ export default function DocumentsPage() {
     const key = `${item.id}-${kind}`;
     setLoadingKey(key);
     setError(null);
+    setReader(null);
+    // Un filtre/résultat de recherche-dans-le-document laissé par la vue
+    // précédente ne doit jamais rester affiché par-dessus un nouveau
+    // contenu (Lire -> Résumer, ou changement de fichier) - sinon le
+    // nouveau contenu chargé reste invisible, masqué par la liste
+    // d'occurrences périmée (bug trouvé par Chris : le résumé se
+    // chargeait bien mais restait caché derrière une recherche "budget"
+    // encore active).
+    setDocFilter("");
+    setDocSearchResults(null);
+    if (!selection || selection.kind === "image" || selection.item.id !== item.id) {
+      setQaHistory([]);
+      setQaInput("");
+    }
     const { nomFichier, dossier } = resolveFileTarget(item);
     const reponse = await callApi(`/documents/${kind}`, { nom_fichier: nomFichier, dossier });
     const message = firstErrorMessage(reponse);
@@ -177,6 +208,14 @@ export default function DocumentsPage() {
   async function openReaderAt(item: ListItem, ligne: number, fenetreDebut?: number, fenetreFin?: number) {
     setReaderLoading(true);
     setError(null);
+    // Ouvre aussi le document complet en arrière-plan si ce n'est pas déjà
+    // celui affiché - fermer la vue contextuelle doit toujours retomber
+    // sur un document utilisable (Résumer/Télécharger/chat prêts), jamais
+    // sur un écran vide (retour de Chris : pas de moyen de revenir à un
+    // écran utile après avoir cliqué sur une occurrence).
+    if (!selection || selection.kind === "image" || selection.item.id !== item.id) {
+      openFile(item, "read");
+    }
     const { nomFichier, dossier } = resolveFileTarget(item);
     const reponse = await callApi("/documents/read-around", {
       nom_fichier: nomFichier,
@@ -257,13 +296,13 @@ export default function DocumentsPage() {
     setSelection({ item: images[cible], kind: "image" });
   }
 
-  function toggleSelected(id: string) {
-    setSelectedIds((precedent) => {
-      const suivant = new Set(precedent);
-      if (suivant.has(id)) {
-        suivant.delete(id);
+  function toggleSelected(item: ListItem) {
+    setSelectedFiles((precedent) => {
+      const suivant = new Map(precedent);
+      if (suivant.has(item.id)) {
+        suivant.delete(item.id);
       } else {
-        suivant.add(id);
+        suivant.set(item.id, item);
       }
       return suivant;
     });
@@ -271,15 +310,88 @@ export default function DocumentsPage() {
 
   function toggleSelectMode() {
     setSelectMode((actif) => !actif);
-    setSelectedIds(new Set());
+    setSelectedFiles(new Map());
+    setSelectedFolders(new Set());
   }
 
-  const itemsSelectionnes = items.filter((item) => selectedIds.has(item.id));
+  const itemsSelectionnes = Array.from(selectedFiles.values());
+  const fichiersDuDossier = items.filter((item) => item.meta?.type !== "dossier");
+  const tousSelectionnes = fichiersDuDossier.length > 0 && fichiersDuDossier.every((item) => selectedFiles.has(item.id));
+
+  function toggleSelectAll() {
+    setSelectedFiles((precedent) => {
+      const suivant = new Map(precedent);
+      if (tousSelectionnes) {
+        fichiersDuDossier.forEach((item) => suivant.delete(item.id));
+      } else {
+        fichiersDuDossier.forEach((item) => suivant.set(item.id, item));
+      }
+      return suivant;
+    });
+  }
+
+  async function toggleFolderSelected(item: ListItem) {
+    const dossier = folderPath(item);
+    if (selectedFolders.has(dossier)) {
+      setSelectedFolders((precedent) => {
+        const suivant = new Set(precedent);
+        suivant.delete(dossier);
+        return suivant;
+      });
+      setSelectedFiles((precedent) => {
+        const suivant = new Map(precedent);
+        for (const [cle, fichier] of suivant) {
+          const dossierFichier = typeof fichier.meta?.dossier === "string" ? fichier.meta.dossier : null;
+          if (dossierFichier === dossier || dossierFichier?.startsWith(`${dossier}/`)) {
+            suivant.delete(cle);
+          }
+        }
+        return suivant;
+      });
+      return;
+    }
+
+    // Parcourt le dossier et ses sous-dossiers (POST /documents/list
+    // répété) pour récupérer tous les fichiers - demande explicite de
+    // Chris ("sélectionner tout un dossier"), pas de route de listing
+    // récursif côté API pour l'instant, donc orchestré ici.
+    setFolderSelectLoading(dossier);
+    setError(null);
+    const fichiers: ListItem[] = [];
+    const aExplorer = [dossier];
+    while (aExplorer.length > 0) {
+      const dossierCourant = aExplorer.pop()!;
+      const reponse = await callApi("/documents/list", { dossier: dossierCourant });
+      const message = firstErrorMessage(reponse);
+      if (message) continue;
+      const bloc = reponse.blocks[0];
+      const elements = bloc && bloc.kind === "list" ? bloc.items : [];
+      for (const element of elements) {
+        if (element.meta?.type === "dossier") {
+          aExplorer.push(joinPath(dossierCourant, element.label));
+        } else {
+          fichiers.push({
+            id: `${dossierCourant}::${element.label}`,
+            label: element.label,
+            meta: { type: "fichier", image: Boolean(element.meta?.image), dossier: dossierCourant },
+          });
+        }
+      }
+    }
+    setSelectedFolders((precedent) => new Set(precedent).add(dossier));
+    setSelectedFiles((precedent) => {
+      const suivant = new Map(precedent);
+      fichiers.forEach((fichier) => suivant.set(fichier.id, fichier));
+      return suivant;
+    });
+    setFolderSelectLoading(null);
+  }
 
   function openGallery() {
     const imagesSelectionnees = itemsSelectionnes.filter((item) => item.meta?.image);
     if (imagesSelectionnees.length === 0) return;
     setGallerySelection(imagesSelectionnees);
+    setGridView(false);
     setSelection({ item: imagesSelectionnees[0], kind: "image" });
   }
 
@@ -366,15 +478,22 @@ export default function DocumentsPage() {
         </button>
       )}
 
-      {!isLoading && !selection && !reader && items.some((item) => item.meta?.type !== "dossier") && (
-        <button onClick={toggleSelectMode} className="self-start text-xs text-accent underline">
-          {selectMode ? "Annuler la sélection" : "☑️ Sélectionner plusieurs documents"}
-        </button>
+      {!isLoading && !selection && !reader && items.length > 0 && (
+        <div className="flex items-center gap-3 self-start text-xs">
+          <button onClick={toggleSelectMode} className="text-accent underline">
+            {selectMode ? "Annuler la sélection" : "Sélectionner"}
+          </button>
+          {selectMode && (
+            <button onClick={toggleSelectAll} className="text-accent underline">
+              {tousSelectionnes ? "Tout désélectionner" : "Tout sélectionner"}
+            </button>
+          )}
+        </div>
       )}
 
-      {selectMode && selectedIds.size > 0 && (
+      {selectMode && selectedFiles.size > 0 && (
         <div className="flex items-center justify-between gap-2 rounded-xl border border-accent bg-surface px-4 py-2 text-sm">
-          <span className="text-foreground">{selectedIds.size} sélectionné(s)</span>
+          <span className="text-foreground">{selectedFiles.size} sélectionné(s)</span>
           <div className="flex gap-2">
             {itemsSelectionnes.some((item) => item.meta?.image) && (
               <button onClick={openGallery} className="rounded-full border border-border px-3 py-1 text-xs text-foreground">
@@ -443,48 +562,103 @@ export default function DocumentsPage() {
               {selection.kind === "summarize" ? "Résumé — " : ""}
               {selection.item.label}
             </h2>
-            <button
-              onClick={() => {
-                setSelection(null);
-                setGallerySelection(null);
-              }}
-              className="text-xs text-accent"
-            >
-              Fermer
-            </button>
+            <div className="flex shrink-0 items-center gap-3">
+              {selection.kind !== "image" && (
+                <>
+                  <button
+                    onClick={() => openFile(selection.item, selection.kind === "summarize" ? "read" : "summarize")}
+                    disabled={loadingKey !== null}
+                    className="flex items-center gap-1 text-xs text-accent disabled:opacity-50"
+                  >
+                    {loadingKey === `${selection.item.id}-${selection.kind === "summarize" ? "read" : "summarize"}` && (
+                      <Spinner />
+                    )}
+                    {selection.kind === "summarize" ? "Lire" : "Résumer"}
+                  </button>
+                  <a href={downloadHref(selection.item)} className="text-xs text-accent" title="Télécharger">
+                    ⬇
+                  </a>
+                </>
+              )}
+              <button
+                onClick={() => {
+                  setSelection(null);
+                  setGallerySelection(null);
+                  setGridView(false);
+                }}
+                className="text-xs text-accent"
+              >
+                Fermer
+              </button>
+            </div>
           </div>
 
           {selection.kind === "image" ? (
             <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={(() => {
-                  const { nomFichier, dossier } = resolveFileTarget(selection.item);
-                  return buildPreviewUrl(nomFichier, dossier);
-                })()}
-                alt={selection.item.label}
-                className="max-h-96 w-full rounded-lg object-contain"
-              />
               {images.length > 1 && (
-                <div className="flex items-center justify-between text-xs text-foreground/70">
-                  <button
-                    onClick={() => showImage(-1)}
-                    disabled={imageIndex <= 0}
-                    className="rounded-full border border-border px-3 py-1 text-foreground disabled:opacity-40"
-                  >
-                    ← Précédente
-                  </button>
-                  <span>
-                    {imageIndex + 1} / {images.length}
-                  </span>
-                  <button
-                    onClick={() => showImage(1)}
-                    disabled={imageIndex >= images.length - 1}
-                    className="rounded-full border border-border px-3 py-1 text-foreground disabled:opacity-40"
-                  >
-                    Suivante →
-                  </button>
+                <button
+                  onClick={() => setGridView((actif) => !actif)}
+                  className="self-start rounded-full border border-border px-3 py-1 text-xs text-foreground"
+                >
+                  {gridView ? "🖼️ Vue simple" : "🔲 Voir toutes les photos"}
+                </button>
+              )}
+              {gridView ? (
+                <div className="grid grid-cols-3 gap-2">
+                  {images.map((image) => {
+                    const { nomFichier, dossier } = resolveFileTarget(image);
+                    return (
+                      <button
+                        key={image.id}
+                        onClick={() => {
+                          setSelection({ item: image, kind: "image" });
+                          setGridView(false);
+                        }}
+                        className="aspect-square overflow-hidden rounded-lg border border-border"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={buildPreviewUrl(nomFichier, dossier)}
+                          alt={image.label}
+                          className="h-full w-full object-cover"
+                        />
+                      </button>
+                    );
+                  })}
                 </div>
+              ) : (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={(() => {
+                      const { nomFichier, dossier } = resolveFileTarget(selection.item);
+                      return buildPreviewUrl(nomFichier, dossier);
+                    })()}
+                    alt={selection.item.label}
+                    className="max-h-96 w-full rounded-lg object-contain"
+                  />
+                  {images.length > 1 && (
+                    <div className="flex items-center justify-between text-xs text-foreground/70">
+                      <button
+                        onClick={() => showImage(-1)}
+                        disabled={imageIndex <= 0}
+                        className="rounded-full border border-border px-3 py-1 text-foreground disabled:opacity-40"
+                      >
+                        ← Précédente
+                      </button>
+                      <span>
+                        {imageIndex + 1} / {images.length}
+                      </span>
+                      <button
+                        onClick={() => showImage(1)}
+                        disabled={imageIndex >= images.length - 1}
+                        className="rounded-full border border-border px-3 py-1 text-foreground disabled:opacity-40"
+                      >
+                        Suivante →
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
             </>
           ) : (
@@ -589,14 +763,32 @@ export default function DocumentsPage() {
             {items.map((item) => (
               <li key={item.id}>
                 {item.meta?.type === "dossier" ? (
-                  <button
-                    onClick={() => openFolder(item)}
-                    className="flex w-full items-center gap-2 rounded-xl border border-border bg-surface px-4 py-3 text-left"
-                  >
-                    <span>📁</span>
-                    <span className="flex-1 truncate text-sm text-foreground">{item.label}</span>
-                    <span className="text-foreground/40">›</span>
-                  </button>
+                  selectMode ? (
+                    <div className="flex w-full items-center gap-2 rounded-xl border border-border bg-surface px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedFolders.has(folderPath(item))}
+                        onChange={() => toggleFolderSelected(item)}
+                        disabled={folderSelectLoading !== null}
+                        className="shrink-0"
+                      />
+                      <button onClick={() => openFolder(item)} className="flex flex-1 items-center gap-2 text-left">
+                        <span>📁</span>
+                        <span className="flex-1 truncate text-sm text-foreground">{item.label}</span>
+                        {folderSelectLoading === folderPath(item) && <Spinner />}
+                        <span className="text-foreground/40">›</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => openFolder(item)}
+                      className="flex w-full items-center gap-2 rounded-xl border border-border bg-surface px-4 py-3 text-left"
+                    >
+                      <span>📁</span>
+                      <span className="flex-1 truncate text-sm text-foreground">{item.label}</span>
+                      <span className="text-foreground/40">›</span>
+                    </button>
+                  )
                 ) : (
                   <div className="flex flex-col gap-2 rounded-xl border border-border bg-surface px-4 py-3">
                     <div className="flex items-center justify-between gap-2">
@@ -604,8 +796,8 @@ export default function DocumentsPage() {
                         {selectMode && (
                           <input
                             type="checkbox"
-                            checked={selectedIds.has(item.id)}
-                            onChange={() => toggleSelected(item.id)}
+                            checked={selectedFiles.has(item.id)}
+                            onChange={() => toggleSelected(item)}
                             className="shrink-0"
                           />
                         )}
