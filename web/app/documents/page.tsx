@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Spinner from "../components/Spinner";
 import { buildDownloadUrl, buildPreviewUrl, callApi, firstErrorMessage, type ListItem } from "../lib/api";
 
@@ -22,6 +22,11 @@ type ReaderView = {
   totalLignes: number;
   warning?: string;
 };
+
+type SlowNotice = { token: number; label: string };
+type CompletedNotice = { message: string; onView?: () => void };
+
+const DELAI_AVANT_NOTICE_LENTE_MS = 10000;
 
 function joinPath(base: string, name: string) {
   return base ? `${base}/${name}` : name;
@@ -51,10 +56,27 @@ export default function DocumentsPage() {
   const [folderSelectLoading, setFolderSelectLoading] = useState<string | null>(null);
   const [gallerySelection, setGallerySelection] = useState<ListItem[] | null>(null);
   const [gridView, setGridView] = useState(false);
+  // Jeton de navigation : incrémenté à chaque écran ouvert et à chaque
+  // retour arrière. Une requête en cours compare son jeton au jeton
+  // courant avant d'appliquer son résultat - si l'utilisateur est parti
+  // ailleurs entre-temps (bouton Retour, autre document...), le résultat
+  // tardif est ignoré au lieu de forcer l'écran en arrière (retour de
+  // Chris : "je devrais avoir le moyen d'annuler avec retour plutôt que
+  // de forcer").
+  const requestTokenRef = useRef(0);
+  // Jetons pour lesquels l'utilisateur a explicitement demandé à être
+  // prévenu ("M'avertir quand c'est terminé") après un chargement lent -
+  // ceux-là, contrairement aux autres requêtes abandonnées, déclenchent
+  // un avertissement discret à leur arrivée même si l'écran a changé.
+  const notifiedTokensRef = useRef<Set<number>>(new Set());
+  const [slowNotice, setSlowNotice] = useState<SlowNotice | null>(null);
+  const [completedNotice, setCompletedNotice] = useState<CompletedNotice | null>(null);
 
   async function loadFolder(path: string) {
+    requestTokenRef.current += 1;
     setIsLoading(true);
     setError(null);
+    setSlowNotice(null);
     setSelection(null);
     setReader(null);
     setSelectMode(false);
@@ -88,8 +110,10 @@ export default function DocumentsPage() {
     const motCle = query.trim();
     if (!motCle) return;
 
+    requestTokenRef.current += 1;
     setIsLoading(true);
     setError(null);
+    setSlowNotice(null);
     setSelection(null);
     setReader(null);
     setSelectMode(false);
@@ -134,6 +158,8 @@ export default function DocumentsPage() {
   }
 
   function openSelection(item: ListItem) {
+    requestTokenRef.current += 1;
+    setSlowNotice(null);
     setDocFilter("");
     setDocSearchResults(null);
     setQaHistory([]);
@@ -171,6 +197,7 @@ export default function DocumentsPage() {
   }
 
   async function openFile(item: ListItem, kind: "read" | "summarize") {
+    const token = ++requestTokenRef.current;
     const key = `${item.id}-${kind}`;
     setLoadingKey(key);
     setError(null);
@@ -188,34 +215,58 @@ export default function DocumentsPage() {
       setQaHistory([]);
       setQaInput("");
     }
+
+    // Le résumé passe par un LLM et peut prendre plusieurs secondes -
+    // proposer de prévenir plutôt que de bloquer sur l'attente (demande
+    // de Chris). La lecture brute est un accès fichier local, jamais lente.
+    let minuteur: ReturnType<typeof setTimeout> | null = null;
+    if (kind === "summarize") {
+      minuteur = setTimeout(() => {
+        if (requestTokenRef.current === token) {
+          setSlowNotice({ token, label: `le résumé de ${item.label}` });
+        }
+      }, DELAI_AVANT_NOTICE_LENTE_MS);
+    }
+
     const { nomFichier, dossier } = resolveFileTarget(item);
     const reponse = await callApi(`/documents/${kind}`, { nom_fichier: nomFichier, dossier });
+    if (minuteur) clearTimeout(minuteur);
+
     const message = firstErrorMessage(reponse);
-    if (message) {
-      setError(message);
-    } else {
-      const bloc = reponse.blocks[0];
-      setSelection({
-        item,
-        kind,
-        body: bloc && bloc.kind === "text" ? bloc.body : "",
-        warning: bloc && bloc.kind === "text" ? bloc.warning : undefined,
+    const bloc = reponse.blocks[0];
+    const resultat: Selection = {
+      item,
+      kind,
+      body: bloc && bloc.kind === "text" ? bloc.body : "",
+      warning: bloc && bloc.kind === "text" ? bloc.warning : undefined,
+    };
+
+    if (requestTokenRef.current === token) {
+      if (message) setError(message);
+      else setSelection(resultat);
+      setLoadingKey(null);
+      setSlowNotice((precedent) => (precedent?.token === token ? null : precedent));
+    } else if (notifiedTokensRef.current.has(token)) {
+      // L'utilisateur a demandé à être prévenu et est parti voir autre
+      // chose entre-temps - ne pas forcer son écran, juste le signaler.
+      notifiedTokensRef.current.delete(token);
+      setCompletedNotice({
+        message: message ? `Le résumé de "${item.label}" a échoué : ${message}` : `Le résumé de "${item.label}" est prêt.`,
+        onView: message ? undefined : () => setSelection(resultat),
       });
     }
-    setLoadingKey(null);
   }
 
   async function openReaderAt(item: ListItem, ligne: number, fenetreDebut?: number, fenetreFin?: number) {
+    // Ne touche plus à `selection` en arrière-plan : ouvrir automatiquement
+    // le début du document surprenait Chris en fermant la fenêtre
+    // contextuelle ("ça m'affiche un autre texte, pas très intuitif").
+    // Résumer/Télécharger sont accessibles directement depuis l'en-tête de
+    // cette vue à la place - fermer révèle exactement ce qu'il y avait
+    // avant, jamais un écran fabriqué.
+    const token = ++requestTokenRef.current;
     setReaderLoading(true);
     setError(null);
-    // Ouvre aussi le document complet en arrière-plan si ce n'est pas déjà
-    // celui affiché - fermer la vue contextuelle doit toujours retomber
-    // sur un document utilisable (Résumer/Télécharger/chat prêts), jamais
-    // sur un écran vide (retour de Chris : pas de moyen de revenir à un
-    // écran utile après avoir cliqué sur une occurrence).
-    if (!selection || selection.kind === "image" || selection.item.id !== item.id) {
-      openFile(item, "read");
-    }
     const { nomFichier, dossier } = resolveFileTarget(item);
     const reponse = await callApi("/documents/read-around", {
       nom_fichier: nomFichier,
@@ -224,6 +275,8 @@ export default function DocumentsPage() {
       fenetre_debut: fenetreDebut ?? null,
       fenetre_fin: fenetreFin ?? null,
     });
+    if (requestTokenRef.current !== token) return;
+
     const message = firstErrorMessage(reponse);
     if (message) {
       setError(message);
@@ -264,17 +317,57 @@ export default function DocumentsPage() {
     const question = qaInput.trim();
     if (!question) return;
 
+    const token = ++requestTokenRef.current;
+    const item = selection.item;
     setQaLoading(true);
     setQaInput("");
-    const { nomFichier, dossier } = resolveFileTarget(selection.item);
+
+    let minuteur: ReturnType<typeof setTimeout> | null = setTimeout(() => {
+      if (requestTokenRef.current === token) {
+        setSlowNotice({ token, label: `la réponse sur ${item.label}` });
+      }
+    }, DELAI_AVANT_NOTICE_LENTE_MS);
+
+    const { nomFichier, dossier } = resolveFileTarget(item);
     const reponse = await callApi("/documents/question", { nom_fichier: nomFichier, dossier, question });
+    if (minuteur) clearTimeout(minuteur);
+    minuteur = null;
+
     const message = firstErrorMessage(reponse);
     const bloc = reponse.blocks[0];
-    setQaHistory((history) => [
-      ...history,
-      { question, answer: message ?? (bloc && bloc.kind === "text" ? bloc.body : "") },
-    ]);
-    setQaLoading(false);
+    const reponseTexte = message ?? (bloc && bloc.kind === "text" ? bloc.body : "");
+
+    if (requestTokenRef.current === token) {
+      setQaHistory((history) => [...history, { question, answer: reponseTexte }]);
+      setQaLoading(false);
+      setSlowNotice((precedent) => (precedent?.token === token ? null : precedent));
+    } else if (notifiedTokensRef.current.has(token)) {
+      notifiedTokensRef.current.delete(token);
+      setCompletedNotice({
+        message: `Réponse prête pour "${item.label}" : ${question}`,
+        onView: () => {
+          setQaHistory((history) => [...history, { question, answer: reponseTexte }]);
+        },
+      });
+    }
+  }
+
+  function goBack() {
+    // Invalide toute requête en cours (résumé, lecture...) sans en
+    // relancer une nouvelle - si elle arrive quand même plus tard, elle
+    // sera ignorée (sauf si l'utilisateur a explicitement demandé à être
+    // prévenu, voir slowNotice/completedNotice).
+    requestTokenRef.current += 1;
+    setLoadingKey(null);
+    setReaderLoading(false);
+    setSlowNotice(null);
+    if (reader) {
+      setReader(null);
+      return;
+    }
+    setSelection(null);
+    setGallerySelection(null);
+    setGridView(false);
   }
 
   function openFolder(item: ListItem) {
@@ -390,6 +483,8 @@ export default function DocumentsPage() {
   function openGallery() {
     const imagesSelectionnees = itemsSelectionnes.filter((item) => item.meta?.image);
     if (imagesSelectionnees.length === 0) return;
+    requestTokenRef.current += 1;
+    setSlowNotice(null);
     setGallerySelection(imagesSelectionnees);
     setGridView(false);
     setSelection({ item: imagesSelectionnees[0], kind: "image" });
@@ -424,6 +519,11 @@ export default function DocumentsPage() {
       </div>
 
       <nav className="flex flex-wrap items-center gap-1 text-sm text-foreground/70">
+        {(reader || selection) && (
+          <button onClick={goBack} className="mr-1 flex items-center gap-1 text-accent hover:text-accent">
+            ← Retour
+          </button>
+        )}
         <button onClick={() => loadFolder("")} className="hover:text-accent">
           🏠
         </button>
@@ -513,13 +613,71 @@ export default function DocumentsPage() {
         </p>
       )}
 
+      {slowNotice && (
+        <div className="flex items-center justify-between gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
+          <span>⏳ Réseau lent, {slowNotice.label} met du temps à charger…</span>
+          <button
+            onClick={() => {
+              notifiedTokensRef.current.add(slowNotice.token);
+              setSlowNotice(null);
+            }}
+            className="shrink-0 underline"
+          >
+            M&apos;avertir quand c&apos;est terminé
+          </button>
+        </div>
+      )}
+
+      {completedNotice && (
+        <div className="flex items-center justify-between gap-2 rounded-xl border border-accent bg-surface px-4 py-2 text-sm">
+          <span className="text-foreground">{completedNotice.message}</span>
+          <div className="flex shrink-0 gap-2">
+            {completedNotice.onView && (
+              <button
+                onClick={() => {
+                  completedNotice.onView?.();
+                  setCompletedNotice(null);
+                }}
+                className="rounded-full border border-border px-3 py-1 text-xs text-foreground"
+              >
+                Regarder
+              </button>
+            )}
+            <button
+              onClick={() => setCompletedNotice(null)}
+              className="rounded-full border border-border px-3 py-1 text-xs text-foreground"
+            >
+              Ignorer
+            </button>
+          </div>
+        </div>
+      )}
+
       {reader && (
         <div className="flex flex-col gap-3 rounded-xl border border-accent bg-surface p-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-medium text-foreground">{reader.item.label}</h2>
-            <button onClick={() => setReader(null)} className="text-xs text-accent">
-              Fermer
-            </button>
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="truncate text-sm font-medium text-foreground">{reader.item.label}</h2>
+            <div className="flex shrink-0 items-center gap-3 text-xs text-accent">
+              <button
+                onClick={() => openFile(reader.item, "read")}
+                disabled={loadingKey === `${reader.item.id}-read`}
+                className="flex items-center gap-1 disabled:opacity-50"
+              >
+                {loadingKey === `${reader.item.id}-read` && <Spinner />}
+                Lire
+              </button>
+              <button
+                onClick={() => openFile(reader.item, "summarize")}
+                disabled={loadingKey === `${reader.item.id}-summarize`}
+                className="flex items-center gap-1 disabled:opacity-50"
+              >
+                {loadingKey === `${reader.item.id}-summarize` && <Spinner />}
+                Résumer
+              </button>
+              <a href={downloadHref(reader.item)} title="Télécharger">
+                ⬇
+              </a>
+            </div>
           </div>
 
           {reader.warning && (
@@ -567,7 +725,9 @@ export default function DocumentsPage() {
                 <>
                   <button
                     onClick={() => openFile(selection.item, selection.kind === "summarize" ? "read" : "summarize")}
-                    disabled={loadingKey !== null}
+                    disabled={
+                      loadingKey === `${selection.item.id}-${selection.kind === "summarize" ? "read" : "summarize"}`
+                    }
                     className="flex items-center gap-1 text-xs text-accent disabled:opacity-50"
                   >
                     {loadingKey === `${selection.item.id}-${selection.kind === "summarize" ? "read" : "summarize"}` && (
@@ -580,16 +740,6 @@ export default function DocumentsPage() {
                   </a>
                 </>
               )}
-              <button
-                onClick={() => {
-                  setSelection(null);
-                  setGallerySelection(null);
-                  setGridView(false);
-                }}
-                className="text-xs text-accent"
-              >
-                Fermer
-              </button>
             </div>
           </div>
 
@@ -817,7 +967,7 @@ export default function DocumentsPage() {
                           <>
                             <button
                               onClick={() => openFile(item, "read")}
-                              disabled={loadingKey !== null}
+                              disabled={loadingKey === `${item.id}-read`}
                               className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs text-foreground disabled:opacity-50"
                             >
                               {loadingKey === `${item.id}-read` && <Spinner />}
@@ -825,7 +975,7 @@ export default function DocumentsPage() {
                             </button>
                             <button
                               onClick={() => openFile(item, "summarize")}
-                              disabled={loadingKey !== null}
+                              disabled={loadingKey === `${item.id}-summarize`}
                               className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs text-foreground disabled:opacity-50"
                             >
                               {loadingKey === `${item.id}-summarize` && <Spinner />}
