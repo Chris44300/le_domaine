@@ -659,19 +659,14 @@ depuis le Domaine, où que Chris se trouve.
         cette règle, le profil "Public"/"Private" bloque les connexions
         entrantes par défaut même si uvicorn écoute sur toutes les
         interfaces.
-- [ ] 5.3 Sur Vercel, mettre à jour la variable d'environnement
-      `NEXT_PUBLIC_API_URL` pour pointer vers
-      `https://pcseeouest016.tailed7ce8.ts.net:8000` (voir 5.3bis — mise à
-      jour le 2026-08-29, ce n'est plus l'IP Tailscale nue en HTTP) puis
-      redéployer (les variables `NEXT_PUBLIC_*` sont figées au moment du
-      build, un changement de valeur seul ne suffit pas). À faire par
-      Chris dans le dashboard Vercel — Claude n'a pas d'accès de
-      déploiement configuré. Le fetch
-      reste côté client (dans le navigateur du visiteur), donc ça marche
-      tant que l'appareil qui consulte le Domaine est lui-même sur le
-      tailnet (le téléphone de Chris l'est déjà) — Vercel lui-même n'a
-      pas besoin d'être sur le réseau Tailscale.
-- [~] 5.3bis (ajouté le 2026-08-29) Certificat HTTPS Tailscale, pour
+- [x] 5.3 Sur Vercel, `NEXT_PUBLIC_API_URL` mis à jour vers
+      `https://pcseeouest016.tailed7ce8.ts.net:8000` et redéployé par
+      Chris le 2026-08-29 (voir 5.3bis). Le fetch reste côté client (dans
+      le navigateur du visiteur), donc ça marche tant que l'appareil qui
+      consulte le Domaine est lui-même sur le tailnet (le téléphone de
+      Chris l'est déjà) — Vercel lui-même n'a pas besoin d'être sur le
+      réseau Tailscale.
+- [x] 5.3bis (ajouté le 2026-08-29) Certificat HTTPS Tailscale, pour
       régler le blocage de téléchargement découvert en 3bis.2decies
       (Chrome bloque le HTTP déclenché depuis une page HTTPS) :
   - [x] Chris a activé "HTTPS Certificates" dans la console d'admin
@@ -680,17 +675,13 @@ depuis le Domaine, où que Chris se trouve.
         pcseeouest016.tailed7ce8.ts.net`, fichiers dans
         `assistant-ia-personnel/certs/` (ajouté au `.gitignore` — clé
         privée, spécifique à la machine, ne doit jamais être commitée).
-  - [ ] Reste à faire par Chris : relancer l'API avec la commande
-        suivante (au lieu du `--host 0.0.0.0 --port 8000` habituel),
-        depuis le dossier `assistant-ia-personnel` :
-        `uvicorn api.main:app --host 0.0.0.0 --port 8000 --ssl-keyfile
-        certs/pcseeouest016.tailed7ce8.ts.net.key --ssl-certfile
-        certs/pcseeouest016.tailed7ce8.ts.net.crt`
-  - [ ] Reste à faire par Chris : mettre à jour `NEXT_PUBLIC_API_URL` sur
-        Vercel (voir 5.3) et redéployer.
-  - [ ] À vérifier une fois les deux étapes ci-dessus faites : que le
-        téléchargement fonctionne bien depuis le Domaine en visite réelle
-        (Vercel + téléphone en 4G).
+  - [x] API relancée par Chris avec `--ssl-keyfile`/`--ssl-certfile` —
+        premier essai bloqué par une ancienne instance de l'API restée
+        active sur le port 8000 (`Errno 10048`), débloqué en tuant
+        l'ancien processus Python.
+  - [x] `NEXT_PUBLIC_API_URL` mis à jour sur Vercel et redéployé (voir 5.3).
+  - [x] Vérifié le 2026-08-29 : téléchargement fonctionnel depuis le
+        Domaine déployé, questions sur document testées avec succès.
   - Note : le certificat Tailscale expire au bout de quelques mois — un
     renouvellement (`tailscale cert` à nouveau) sera nécessaire un jour,
     à garder en tête si le download recommence à échouer plus tard.
@@ -708,19 +699,14 @@ depuis le Domaine, où que Chris se trouve.
       (message clair, pas une erreur technique brute) — la base existe
       déjà (`callApi` renvoie un message d'erreur lisible), à vérifier
       que le message reste clair une fois passé par Tailscale.
-- [~] 5.6 Test réel depuis un téléphone en 4G, hors réseau local — le
+- [x] 5.6 Test réel depuis un téléphone en 4G, hors réseau local — le
       scénario "vacances sans le PC" qui a motivé toute cette réflexion.
-      Premier vrai test fait le 2026-08-29 (Vercel + Tailscale) : la
-      connexion API fonctionne bien à distance, mais a révélé un nouveau
-      problème distinct (voir 3bis.2decies) — les téléchargements de
-      fichiers échouent silencieusement, probablement parce que Chrome
-      bloque les téléchargements HTTP déclenchés depuis une page HTTPS
-      (`le-domaine-tau.vercel.app` en HTTPS → l'API Tailscale en HTTP).
-      Piste retenue : activer les certificats HTTPS natifs de Tailscale
-      (`tailscale cert`), ce qui nécessite d'abord que Chris active
-      l'option "HTTPS Certificates" dans la console d'admin Tailscale.
-      Tant que ce n'est pas fait, 5.6 reste partiel : la lecture/recherche
-      marche à distance, le téléchargement de fichiers non.
+      Premier essai le 2026-08-29 (Vercel + Tailscale) : la connexion API
+      fonctionnait déjà à distance, mais le téléchargement échouait
+      silencieusement (Chrome bloquait le HTTP déclenché depuis une page
+      HTTPS). Résolu le même jour via le certificat HTTPS Tailscale (voir
+      5.3bis) : téléchargement et questions sur document confirmés
+      fonctionnels par Chris en conditions réelles.
 
 **Sortie de la Phase 5 :** le scénario "je suis en vacances, je veux un
 fichier de mon NAS depuis mon téléphone" fonctionne pour de vrai (même si
