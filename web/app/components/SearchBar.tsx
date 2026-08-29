@@ -117,6 +117,7 @@ export default function SearchBar() {
                   >
                     <span className="shrink-0">{item.meta?.type === "dossier" ? "📁" : "📄"}</span>
                     <span className="flex-1 truncate text-sm text-foreground">{item.label}</span>
+                    {item.meta?.type !== "dossier" && <span className="shrink-0 text-foreground/40">›</span>}
                   </button>
                 </li>
               ),

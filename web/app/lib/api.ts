@@ -16,6 +16,8 @@ export type Block =
       fenetre_debut?: number;
       fenetre_fin?: number;
       total_lignes?: number;
+      ligne_troncature?: number;
+      feuilles?: ListItem[];
     }
   | { kind: "list"; items: ListItem[] }
   | { kind: "error"; message: string };
@@ -61,4 +63,46 @@ export function buildDownloadUrl(nomFichier: string, dossier: string | null): st
 
 export function buildPreviewUrl(nomFichier: string, dossier: string | null): string {
   return buildFileUrl("preview", nomFichier, dossier);
+}
+
+export type FichierCible = { nomFichier: string; dossier: string | null };
+
+// Un seul telechargement (un blob, un clic) plutot qu'un clic par fichier
+// - Chrome bloque silencieusement les telechargements automatiques
+// successifs sans permission explicite, ce qui empechait la selection
+// multiple de fonctionner. Retourne un message d'erreur (string) ou null
+// si le telechargement a demarre.
+export async function downloadZip(fichiers: FichierCible[]): Promise<string | null> {
+  let reponse: Response;
+  try {
+    reponse = await fetch(`${API_URL}/documents/zip`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        fichiers: fichiers.map((f) => ({ nom_fichier: f.nomFichier, dossier: f.dossier })),
+      }),
+    });
+  } catch {
+    return `Impossible de joindre l'API (${API_URL}). Le serveur local tourne-t-il ?`;
+  }
+
+  if (!reponse.ok) {
+    try {
+      const corps = await reponse.json();
+      return corps.detail ?? `Erreur ${reponse.status} lors de la création du zip.`;
+    } catch {
+      return `Erreur ${reponse.status} lors de la création du zip.`;
+    }
+  }
+
+  const blob = await reponse.blob();
+  const url = URL.createObjectURL(blob);
+  const lien = document.createElement("a");
+  lien.href = url;
+  lien.download = "documents.zip";
+  document.body.appendChild(lien);
+  lien.click();
+  lien.remove();
+  URL.revokeObjectURL(url);
+  return null;
 }

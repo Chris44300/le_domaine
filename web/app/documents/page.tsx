@@ -3,10 +3,17 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import Spinner from "../components/Spinner";
-import { buildDownloadUrl, buildPreviewUrl, callApi, firstErrorMessage, type ListItem } from "../lib/api";
+import { buildDownloadUrl, buildPreviewUrl, callApi, downloadZip, firstErrorMessage, type ListItem } from "../lib/api";
 
 type Selection =
-  | { item: ListItem; kind: "read" | "summarize"; body: string; warning?: string }
+  | {
+      item: ListItem;
+      kind: "read" | "summarize";
+      body: string;
+      warning?: string;
+      ligneTroncature?: number;
+      feuilles?: ListItem[];
+    }
   | { item: ListItem; kind: "image" };
 
 type QaEntry = { question: string; answer: string; warning?: string };
@@ -56,6 +63,7 @@ export default function DocumentsPage() {
   const [folderSelectLoading, setFolderSelectLoading] = useState<string | null>(null);
   const [gallerySelection, setGallerySelection] = useState<ListItem[] | null>(null);
   const [gridView, setGridView] = useState(false);
+  const [downloadingZip, setDownloadingZip] = useState(false);
   // Jeton de navigation : incrémenté à chaque écran ouvert et à chaque
   // retour arrière. Une requête en cours compare son jeton au jeton
   // courant avant d'appliquer son résultat - si l'utilisateur est parti
@@ -239,6 +247,8 @@ export default function DocumentsPage() {
       kind,
       body: bloc && bloc.kind === "text" ? bloc.body : "",
       warning: bloc && bloc.kind === "text" ? bloc.warning : undefined,
+      ligneTroncature: bloc && bloc.kind === "text" ? bloc.ligne_troncature : undefined,
+      feuilles: bloc && bloc.kind === "text" ? bloc.feuilles : undefined,
     };
 
     if (requestTokenRef.current === token) {
@@ -486,46 +496,49 @@ export default function DocumentsPage() {
     requestTokenRef.current += 1;
     setSlowNotice(null);
     setGallerySelection(imagesSelectionnees);
-    setGridView(false);
+    // Par defaut en grille pour une selection multiple - voir une a une
+    // reste possible en cliquant une vignette (retour de Chris : "Voir"
+    // affichait toujours la premiere au lieu d'une vue multiple).
+    setGridView(imagesSelectionnees.length > 1);
     setSelection({ item: imagesSelectionnees[0], kind: "image" });
   }
 
   async function downloadSelection() {
-    // Pas encore de zip cote serveur (a faire plus tard, en reprenant la
-    // logique de decoupage par taille deja presente cote Telegram) - en
-    // attendant, on declenche un telechargement par fichier. Le navigateur
-    // demandera une confirmation au-dela de quelques fichiers, c'est un
-    // comportement natif normal, pas un bug.
-    for (const item of itemsSelectionnes) {
-      const lien = document.createElement("a");
-      lien.href = downloadHref(item);
-      lien.download = item.label;
-      document.body.appendChild(lien);
-      lien.click();
-      lien.remove();
-      await new Promise((resolve) => setTimeout(resolve, 300));
-    }
+    // Un seul fichier .zip (une seule requete, un seul telechargement)
+    // plutot qu'un clic par fichier : Chrome bloque silencieusement les
+    // telechargements automatiques successifs sans permission explicite,
+    // ce qui empechait la selection multiple de fonctionner (retour de
+    // Chris). /documents/zip cote Nigel construit l'archive en memoire.
+    setDownloadingZip(true);
+    const erreur = await downloadZip(itemsSelectionnes.map((item) => resolveFileTarget(item)));
+    if (erreur) setError(erreur);
+    setDownloadingZip(false);
   }
 
   const segments = currentPath ? currentPath.split("/") : [];
 
   return (
     <div className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-4 px-6 pb-40 pt-16">
-      <div className="flex items-center gap-3">
-        <Link href="/" className="text-sm text-accent">
-          ← Accueil
-        </Link>
-        <h1 className="text-xl font-semibold text-foreground">Documents</h1>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <Link href="/" className="text-sm text-accent">
+            ← Retour au Domaine
+          </Link>
+          <h1 className="text-xl font-semibold text-foreground">Documents</h1>
+        </div>
+        {(reader || selection) && (
+          // A droite, distinct du fil d'Ariane (qui reste a gauche) -
+          // retour de Chris : le bouton retour au milieu du fil d'Ariane
+          // se confondait avec la navigation de dossiers.
+          <button onClick={goBack} className="flex shrink-0 items-center gap-1 text-sm text-accent hover:text-accent">
+            ↩ Retour
+          </button>
+        )}
       </div>
 
       <nav className="flex flex-wrap items-center gap-1 text-sm text-foreground/70">
-        {(reader || selection) && (
-          <button onClick={goBack} className="mr-1 flex items-center gap-1 text-accent hover:text-accent">
-            ← Retour
-          </button>
-        )}
-        <button onClick={() => loadFolder("")} className="hover:text-accent">
-          🏠
+        <button onClick={() => loadFolder("")} className="flex items-center gap-1 hover:text-accent">
+          🏠 Accueil
         </button>
         {segments.map((segment, index) => (
           <span key={index} className="flex items-center gap-1">
@@ -592,17 +605,27 @@ export default function DocumentsPage() {
       )}
 
       {selectMode && selectedFiles.size > 0 && (
-        <div className="flex items-center justify-between gap-2 rounded-xl border border-accent bg-surface px-4 py-2 text-sm">
-          <span className="text-foreground">{selectedFiles.size} sélectionné(s)</span>
-          <div className="flex gap-2">
-            {itemsSelectionnes.some((item) => item.meta?.image) && (
-              <button onClick={openGallery} className="rounded-full border border-border px-3 py-1 text-xs text-foreground">
-                Voir
+        // Fixe en bas de l'ecran plutot qu'inline dans le flux : inserer
+        // ce bandeau au-dessus de la liste faisait descendre toutes les
+        // lignes d'un cran a chaque coche, perturbant pour cocher
+        // plusieurs elements a la suite (retour de Chris).
+        <div className="fixed inset-x-0 bottom-0 z-10 border-t border-accent bg-background/95 px-4 py-3 backdrop-blur">
+          <div className="mx-auto flex w-full max-w-xl items-center justify-between gap-2 text-sm">
+            <span className="text-foreground">{selectedFiles.size} sélectionné(s)</span>
+            <div className="flex gap-2">
+              {itemsSelectionnes.some((item) => item.meta?.image) && (
+                <button onClick={openGallery} className="rounded-full border border-border px-3 py-1 text-xs text-foreground">
+                  Voir
+                </button>
+              )}
+              <button
+                onClick={downloadSelection}
+                disabled={downloadingZip}
+                className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs text-foreground disabled:opacity-50"
+              >
+                {downloadingZip && <Spinner />}⬇ Télécharger
               </button>
-            )}
-            <button onClick={downloadSelection} className="rounded-full border border-border px-3 py-1 text-xs text-foreground">
-              ⬇ Télécharger
-            </button>
+            </div>
           </div>
         </div>
       )}
@@ -818,6 +841,21 @@ export default function DocumentsPage() {
                   {selection.warning}
                 </p>
               )}
+
+              {selection.feuilles && selection.feuilles.length > 1 && (
+                <div className="flex flex-wrap gap-2">
+                  {selection.feuilles.map((feuille) => (
+                    <button
+                      key={feuille.id}
+                      onClick={() => openReaderAt(selection.item, feuille.meta!.ligne as number)}
+                      className="rounded-full border border-border px-3 py-1 text-xs text-foreground hover:border-accent"
+                    >
+                      📄 {feuille.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               <form onSubmit={searchInDocument} className="flex gap-2">
                 <input
                   type="text"
@@ -870,9 +908,21 @@ export default function DocumentsPage() {
                   )}
                 </ul>
               ) : (
-                <p className="max-h-96 overflow-y-auto whitespace-pre-wrap text-sm text-foreground/80">
-                  {selection.body}
-                </p>
+                <div className="flex flex-col gap-2">
+                  <p className="max-h-96 overflow-y-auto whitespace-pre-wrap text-sm text-foreground/80">
+                    {selection.body}
+                  </p>
+                  {selection.ligneTroncature && (
+                    <button
+                      onClick={() => openReaderAt(selection.item, selection.ligneTroncature as number)}
+                      disabled={readerLoading}
+                      className="flex items-center gap-1.5 self-start text-xs text-accent underline disabled:opacity-50"
+                    >
+                      {readerLoading && <Spinner />}
+                      Voir la suite →
+                    </button>
+                  )}
+                </div>
               )}
 
               <div className="flex flex-col gap-2 border-t border-border pt-3">
