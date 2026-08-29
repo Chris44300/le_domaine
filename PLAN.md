@@ -359,6 +359,41 @@ toucher à l'orchestrateur ni à Telegram.
     profondes, recherche in-document trouvant un mot à la ligne 1169,
     question groundée vérifiée exacte dans le texte source. 379 tests
     verts côté Nigel.
+  - [x] 3bis.2quater (ajouté le 2026-08-29, retours de Chris après un
+        deuxième passage de test sur le même document réel) :
+    - Lecture contextuelle (`POST /documents/read-around`) — un clic sur
+      un résultat de recherche (contenu ou in-document) ouvre une fenêtre
+      de 5 lignes avant / 15 après autour de la ligne visée, marqueur
+      "▶", navigation "Contexte précédent/suivant". Première tentative
+      via le regroupement "bloc sémantique" de Telegram
+      (`prepare_document_reader_semantic_block`) écartée : dégénère sur
+      les documents mal OCRisés sans lignes vides fiables (le même
+      règlement de copropriété scanné), fusionnant des centaines de
+      lignes en un seul bloc et noyant le marqueur. Retenu à la place
+      `prepare_document_reader_window`, borné par lignes explicites —
+      immunisé contre ce problème.
+    - Disclaimer "document difficilement lisible" (`evaluer_lisibilite`,
+      `api/document_intelligence.py`) sur `/read`, `/summarize`,
+      `/question` — évite de laisser croire à un bug de l'app face à un
+      vieux scan de mauvaise qualité. Heuristique calibrée en 3 essais
+      sur le document réel de Chris (ratio de lettres isolées, seuil
+      0.08 ; les deux premières heuristiques essayées — mots courants,
+      mots sans voyelle — ne discriminaient pas assez).
+    - Chat Q&A groundé dans un contexte CIBLÉ (`construire_contexte_cible`)
+      au lieu du début tronqué du document — bug trouvé en testant :
+      une question sur un passage situé loin dans un long document
+      échouait car `charger_fichier_texte_pour_llm` tronque avant de
+      l'atteindre. Reste déterministe (recherche de mots-clés, pas
+      d'embeddings, conforme à la philosophie du README Nigel).
+    - Carrousel photo (Précédente/Suivante dans l'aperçu image, purement
+      frontend) et sélection multiple (cases à cocher, actions par lot
+      "Voir" en galerie / "Télécharger") — le vrai zip côté serveur
+      (avec découpage par taille, logique déjà existante côté Telegram)
+      reste une suite séparée ; ceci est la version cliente qui débloque
+      déjà l'usage.
+    Vérifié en conditions réelles dans le navigateur, de bout en bout,
+    sur le même document dégradé que Chris avait signalé. 391 tests
+    verts côté Nigel.
 - [x] 3bis.3 Intégrés à l'écran d'accueil : deux nouvelles tuiles
       cliquables (Tâches, Documents) ; Ménage reste en attente de la
       Phase 4.
@@ -529,8 +564,10 @@ de ce qui existait déjà chez Nigel.
 
 **Idées notées pour plus tard, non priorisées** (Chris, 2026-08-29,
 volontairement pas développées maintenant) :
-- Sélection multiple dans Documents (cocher plusieurs fichiers) pour une
-  action groupée, ex. téléchargement de plusieurs fichiers à la fois.
+- Zip serveur pour le téléchargement groupé (voir 3bis.2quater) — la
+  sélection multiple elle-même a été avancée le jour même ; reste le
+  vrai zip côté serveur, avec le découpage par taille déjà existant côté
+  Telegram, à porter sur l'API.
 - "Envoyer par email" comme action sur un fichier, une fois qu'une
   adresse mail sera configurée dans Le Domaine.
 
@@ -615,3 +652,11 @@ années sans devenir un fardeau.
   tactile au clic (globals.css) et indicateur de chargement précis
   (Spinner.tsx). Idées "sélection multiple" et "envoi par email" notées
   en Phase 8, volontairement pas développées maintenant.
+- 2026-08-29 : deuxième round de retours de Chris après un test plus
+  poussé du même document dégradé (3bis.2quater) — lecture contextuelle
+  par fenêtre de lignes, disclaimer OCR, chat Q&A recentré sur un
+  contexte ciblé plutôt que le début tronqué, carrousel photo, sélection
+  multiple avec galerie/téléchargement par lot. La sélection multiple,
+  prévue "pour plus tard" en Phase 8, a finalement été avancée maintenant
+  à la demande explicite de Chris (cas d'usage album photo). Le zip
+  serveur reste différé.
