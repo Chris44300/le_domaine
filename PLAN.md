@@ -464,6 +464,37 @@ toucher à l'orchestrateur ni à Telegram.
     texte tronqué s'arrêtait, navigation vers un onglet Excel précis,
     bandeau de sélection fixe ne déplaçant plus la liste. 405 tests
     verts côté Nigel, build de production propre côté web.
+  - [x] 3bis.2septies (ajouté le 2026-08-29, sixième round de retours) :
+    - **Bug racine trouvé, pas juste contourné** : l'OCR web échouait
+      ("Tesseract non trouvé") sur tout document scanné pas déjà en
+      cache, alors même que `TESSERACT_CMD` était correctement renseigné
+      dans `.env`. Cause : `api/main.py` (le serveur FastAPI) n'a jamais
+      appelé `load_dotenv()` - seul `run_telegram.py` le fait. `.env`
+      n'était donc jamais lu par l'API web. Les quelques documents déjà
+      lisibles l'étaient uniquement parce que leur extraction avait été
+      mise en cache lors d'un passage antérieur par Telegram. Deuxième
+      couche du bug : le cache d'extraction mémorise aussi les échecs
+      (indexés par mtime/taille du fichier) - un document resté bloqué
+      sur l'erreur avant la correction y restait bloqué pour toujours,
+      même après avoir corrigé la cause. Purge ponctuelle des 11 lignes
+      en erreur dans `document_index.sqlite3` en plus du correctif de
+      code.
+    - Navigation par page pour les PDF à plusieurs pages, même principe
+      que les onglets Excel (marqueur "=== Page N/M ===" posé par
+      `lire_fichier_pdf` et `retrieval.ocr_service`) - `feuilles` renommé
+      en `sections` (backend et web) pour couvrir les deux cas. Demande
+      de Chris après avoir remarqué des numéros "1/8, 2/8" dans un
+      document lu, qui n'étaient que le pied de page du PDF lui-même
+      (pas fiable), pas un marqueur.
+    - En-tête de Documents restructuré (retour avec capture d'écran) :
+      deux rangées distinctes désormais - titre "Documents" + retour
+      discret vers le Domaine général sur la première, navigation
+      interne à Documents (accueil + fil d'Ariane à gauche, retour
+      arrière contextuel à droite) sur la seconde.
+    Vérifié en conditions réelles sur le document qui échouait
+    (PDF scanné de 28 pages, contenu notarié) : OCR réussi de bout en
+    bout, 28 pages navigables, saut direct vers la page 15 fonctionnel.
+    406 tests verts, build de production propre.
 - [x] 3bis.3 Intégrés à l'écran d'accueil : deux nouvelles tuiles
       cliquables (Tâches, Documents) ; Ménage reste en attente de la
       Phase 4.
@@ -830,3 +861,9 @@ années sans devenir un fardeau.
   installation à faire par lui (lien fourni dans le message d'erreur
   existant, `TESSERACT_CMD` dans `.env` si besoin d'un chemin
   personnalisé) — Claude n'installe pas d'exécutables système.
+- 2026-08-29 : correction du diagnostic Tesseract ci-dessus - Chris avait
+  déjà Tesseract installé (`TESSERACT_CMD` déjà correct dans `.env`
+  depuis un moment). Le vrai problème était côté code : `api/main.py` ne
+  chargeait jamais `.env` (voir 3bis.2septies). Pas besoin d'action
+  supplémentaire de Chris pour l'OCR une fois ce correctif déployé -
+  juste redémarrer l'API.
