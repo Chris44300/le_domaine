@@ -429,8 +429,17 @@ entre les pièces déjà branchées, pas seulement interroger les documents.
         de recherche du Domaine — plus du texte brut. Vérifié en
         conditions réelles (liste cliquable, bascule fait/pas fait
         depuis la barre de recherche, "aide" toujours en texte normal).
-  - [ ] Tranche 2 (documents) : même principe pour la recherche
-        documentaire en texte libre — pas encore fait.
+  - [x] Tranche 2 (documents) : même principe pour `rechercher_fichier`
+        et `lister_fichiers` en texte libre — vrai bloc `list` cliquable
+        (mêmes constructeurs que `POST /documents/search`/`/list`), lu
+        directement depuis les paramètres déjà présents dans le payload
+        de l'orchestrateur (`mot_cle`, `dossier_relatif`), sans reparser
+        le texte utilisateur. Cas "pending" (mot-clé pas encore donné)
+        reste correctement en texte normal. Vérifié en conditions
+        réelles : recherche + lecture inline depuis la barre de
+        recherche. `rechercher_contenu_fichiers` et les autres intentions
+        documentaires (lire/résumer par texte libre) pas encore couverts
+        — même principe applicable plus tard si besoin réel.
   - [ ] Ménage : pas encore de données Ménage exposées par l'API (reste
         un lien direct, Phase 4).
 - [ ] 6.2 Reprendre et étendre le pattern déjà en place (`registry.py`) :
