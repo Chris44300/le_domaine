@@ -366,29 +366,46 @@ complète** (V0 ; V1 volontairement en attente d'usage réel).
 **Objectif :** rendre le NAS/l'index documentaire de Nigel accessible
 depuis le Domaine, où que Chris se trouve.
 
+> **Révision du 2026-08-28** : le NAS et le mini-PC ne sont pas encore là
+> (achat en cours, délai de quelques jours/semaines). Décision : ne pas
+> attendre — le PC actuel de Chris sert de relais provisoire pour tout ce
+> qui suit (Tailscale, API exposée dessus). Seule différence pratique :
+> pas de disponibilité 24/7 garantie tant que c'est le PC principal et
+> non un mini-PC dédié (déjà nommé comme risque dans `ARCHITECTURE.md`
+> §0) — mais aucun changement d'architecture n'est nécessaire, Tailscale
+> ne fait pas de distinction entre "mini-PC" et "PC principal". Migration
+> vers le vrai mini-PC/NAS plus tard : reconnecter Tailscale sur la
+> nouvelle machine, rien à changer côté Domaine/API.
+
 - [ ] 5.1 🎓 Tailscale :
-  - [ ] 5.1.1 Créer un compte, installer sur le mini-PC.
+  - [ ] 5.1.1 Créer un compte, installer sur le PC actuel de Chris (relais
+        provisoire — migration vers le mini-PC/NAS plus tard).
   - [ ] 5.1.2 Installer sur le téléphone (et tout autre appareil
         personnel).
-  - [ ] 5.1.3 Vérifier qu'un appareil peut "voir" le mini-PC par son
-        adresse Tailscale.
-- [ ] 5.2 Exposer l'API FastAPI du mini-PC UNIQUEMENT sur le réseau
-      Tailscale (jamais sur l'internet public directement).
+  - [ ] 5.1.3 Vérifier qu'un appareil peut "voir" le PC par son adresse
+        Tailscale.
+- [ ] 5.2 Exposer l'API FastAPI UNIQUEMENT sur le réseau Tailscale
+      (jamais sur l'internet public directement).
 - [ ] 5.3 Sur Vercel, mettre à jour la variable d'environnement de l'URL
-      de l'API pour pointer vers l'adresse Tailscale du mini-PC.
-- [ ] 5.4 Construire la pièce Documents dans le Domaine :
-  - [ ] 5.4.1 Liste de dossiers/fichiers (réutilise l'API de la Phase 1).
-  - [ ] 5.4.2 Recherche.
-  - [ ] 5.4.3 Lecture d'un fichier.
+      de l'API pour pointer vers l'adresse Tailscale du PC.
+- [x] 5.4 Construire la pièce Documents dans le Domaine — fait dès la
+      Phase 3bis (`app/documents`), avant même le tunnel réseau :
+  - [x] 5.4.1 Liste de dossiers/fichiers (réutilise l'API de la Phase 1).
+  - [x] 5.4.2 Recherche.
+  - [x] 5.4.3 Lecture d'un fichier.
   - [ ] 5.4.4 Téléchargement (zip inclus, réutilise directement la
-        logique déjà construite et déjà solide côté Telegram).
-- [ ] 5.5 Gérer proprement le cas "le mini-PC est éteint/injoignable" côté
-      Web (message clair, pas une erreur technique brute).
+        logique déjà construite et déjà solide côté Telegram) — pas
+        encore fait, reste à ajouter.
+- [ ] 5.5 Gérer proprement le cas "le PC est éteint/injoignable" côté Web
+      (message clair, pas une erreur technique brute) — la base existe
+      déjà (`callApi` renvoie un message d'erreur lisible), à vérifier
+      que le message reste clair une fois passé par Tailscale.
 - [ ] 5.6 Test réel depuis un téléphone en 4G, hors réseau local — le
       scénario "vacances sans le PC" qui a motivé toute cette réflexion.
 
 **Sortie de la Phase 5 :** le scénario "je suis en vacances, je veux un
-fichier de mon NAS depuis mon téléphone" fonctionne pour de vrai.
+fichier de mon NAS depuis mon téléphone" fonctionne pour de vrai (même si
+le "NAS" est encore le PC de Chris pour l'instant).
 
 ---
 
