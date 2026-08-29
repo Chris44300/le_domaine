@@ -414,9 +414,25 @@ le "NAS" est encore le PC de Chris pour l'instant).
 **Objectif :** que la barre de recherche du Domaine sache vraiment router
 entre les pièces déjà branchées, pas seulement interroger les documents.
 
+- [x] 6.0 (ajouté le 2026-08-28, prérequis technique découvert en route) :
+      le contrat de retour interne `finalize_result` ne perdait plus
+      `status`/`payload` (flow/action) — condition posée dans
+      `ARCHITECTURE.md` §0.4.1 pour pouvoir un jour reconstruire des
+      blocs structurés depuis `/ask`. Aucun changement de comportement
+      pour Telegram/terminal (361 tests verts).
 - [ ] 6.1 Généraliser `POST /ask` pour router entre tous les domaines déjà
       exposés (documents, tâches, bientôt Ménage si sa donnée passe par
       l'API plutôt que par lien direct).
+  - [x] Tranche 1 (tâches) : `voir_taches`/`voir_restantes` tapés en texte
+        libre renvoient désormais un vrai bloc `list` cliquable (même
+        constructeur que `POST /tasks/list`), rendu en menu dans la barre
+        de recherche du Domaine — plus du texte brut. Vérifié en
+        conditions réelles (liste cliquable, bascule fait/pas fait
+        depuis la barre de recherche, "aide" toujours en texte normal).
+  - [ ] Tranche 2 (documents) : même principe pour la recherche
+        documentaire en texte libre — pas encore fait.
+  - [ ] Ménage : pas encore de données Ménage exposées par l'API (reste
+        un lien direct, Phase 4).
 - [ ] 6.2 Reprendre et étendre le pattern déjà en place (`registry.py`) :
       LLM pour comprendre/choisir l'outil, Python pour l'exécuter, LLM
       pour reformuler le résultat.
