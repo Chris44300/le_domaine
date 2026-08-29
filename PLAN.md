@@ -326,6 +326,16 @@ toucher à l'orchestrateur ni à Telegram.
       (`POST /documents/search`), résultats cliquables → lecture
       (`POST /documents/read`) ou résumé (`POST /documents/summarize`)
       affichés inline.
+  - [x] 3bis.2bis (ajouté le 2026-08-29, après discussion d'architecture
+        avec Chris) : Documents devient un vrai navigateur — dossiers
+        cliquables, fil d'Ariane, recherche restreinte au dossier
+        courant, téléchargement de fichier (`GET /documents/download`,
+        anti-traversal testé). Décision actée : Documents est la "salle"
+        où investir (menu inline complet façon Telegram), la barre de
+        recherche reste un routeur léger qui renverra plus tard des liens
+        profonds vers Documents plutôt que de dupliquer la navigation.
+        Vérifié en conditions réelles (navigation 2 niveaux, lecture en
+        profondeur, téléchargement d'un vrai PDF). 368 tests verts.
 - [x] 3bis.3 Intégrés à l'écran d'accueil : deux nouvelles tuiles
       cliquables (Tâches, Documents) ; Ménage reste en attente de la
       Phase 4.
@@ -393,9 +403,10 @@ depuis le Domaine, où que Chris se trouve.
   - [x] 5.4.1 Liste de dossiers/fichiers (réutilise l'API de la Phase 1).
   - [x] 5.4.2 Recherche.
   - [x] 5.4.3 Lecture d'un fichier.
-  - [ ] 5.4.4 Téléchargement (zip inclus, réutilise directement la
-        logique déjà construite et déjà solide côté Telegram) — pas
-        encore fait, reste à ajouter.
+  - [x] 5.4.4 Téléchargement — fait le 2026-08-29 (`GET /documents/download`,
+        voir 3bis.2bis). Zip multi-fichiers pas encore fait (un seul
+        fichier à la fois pour l'instant) — à ajouter si le besoin réel
+        se présente.
 - [ ] 5.5 Gérer proprement le cas "le PC est éteint/injoignable" côté Web
       (message clair, pas une erreur technique brute) — la base existe
       déjà (`callApi` renvoie un message d'erreur lisible), à vérifier

@@ -180,9 +180,82 @@ que par anticipation.
 
 ### 0.4.3 — Statut de cette section
 
-Proposition initiale, pas encore challengée en détail. À valider avant la
-Phase 1 (l'implémentation des premières routes FastAPI s'appuiera
-directement sur ce schéma).
+Validé par l'usage : ce schéma porte toutes les routes API construites
+depuis (Phase 1 à 6bis) sans avoir eu besoin d'être révisé dans sa forme.
+
+---
+
+## 0.5 — Comment construire une nouvelle "salle" (acté le 2026-08-29)
+
+Question posée par Chris : faut-il coder toute nouvelle "salle"
+directement dans le repo `le-domaine`, pour faciliter son intégration et
+son administration via la barre de recherche — ou continuer à construire
+des projets autonomes à côté (comme Ménage l'a été), et les intégrer
+seulement une fois aboutis ?
+
+**Décision : projets autonomes d'abord, intégration seulement quand
+méritée.** C'est déjà comme ça que ce projet a démarré (Ménage avant
+Documents, précisément parce que Ménage était déjà un projet fini et
+autonome — voir §0 point 8) ; cette question généralise cette décision
+initiale plutôt que de la remettre en cause.
+
+**Pourquoi :**
+- Ça correspond à la façon dont Chris aime réellement travailler — coder
+  un projet qui lui plaît, en autonomie, sans les contraintes du Domaine
+  (auth, design system, déploiement) tant qu'il n'est pas sûr de vouloir
+  le garder. Tâches (`core/task_service.py` côté Nigel) a été construite
+  ainsi, pour apprendre à coder, sans lien avec Le Domaine à l'origine.
+- Ça évite exactement les risques nommés dès la Phase 0 (§ "Ce qu'on
+  évite consciemment") : sur-architecture, abstractions construites
+  avant d'en avoir besoin. Imposer les conventions du Domaine à chaque
+  nouvelle idée dès sa naissance alourdit l'expérimentation libre.
+- L'intégration a un coût borné et connu quand elle est faite une fois
+  le projet mûr : Documents (Phase 1) et Ménage (Phase 4) sont entrés
+  dans le Domaine à coût quasi nul, précisément parce qu'on ne les a
+  intégrés qu'une fois qu'ils tenaient debout tout seuls.
+
+**Ce que "intégrer" veut dire concrètement**, pour un projet déjà fait
+maison par Chris (donc pas un vrai tiers) :
+1. Une tuile sur l'écran d'accueil du Domaine — toujours possible,
+   même juste un lien (V0), coût quasi nul.
+2. (Optionnel) Une petite API exposée par le projet lui-même, pour que
+   le majordome (`/ask`) puisse l'utiliser comme un outil — même
+   principe que Documents/Tâches côté Nigel. Ménage n'a pas encore ça.
+3. (Optionnel, plus tard) Un "reskin" visuel pour matcher l'habillage du
+   Domaine — recréer les écrans avec le design system du Domaine, sans
+   toucher à la logique/aux données existantes (jamais une réécriture).
+
+Aucune de ces 3 étapes n'est obligatoire ni immédiate — chacune se
+décide séparément, projet par projet, quand l'usage le justifie.
+
+**Applications non développées maison (vrais tiers), pour plus tard :**
+le niveau 1 (tuile/lien) fonctionne toujours, quel que soit le service.
+Les niveaux 2/3 dépendent entièrement de ce que le service tiers expose
+— faisable seulement s'il a une API utilisable, à évaluer cas par cas
+quand le besoin se présente.
+
+---
+
+## 0.6 — Confidentialité et choix du LLM (acté le 2026-08-29)
+
+Constat de Chris : certains documents futurs pourraient être confidentiels
+au point de ne pas vouloir les envoyer à un LLM externe (OpenAI ou tout
+autre prestataire).
+
+**État réel aujourd'hui, à ne pas perdre de vue :**
+- Comprendre une question ("cherche le rapport de mars") : seul le texte
+  tapé par Chris part vers le LLM, jamais le contenu d'un fichier.
+- Résumer un fichier (`resumer_fichier_avec_llm`, `services/api.py`) :
+  le contenu ENTIER du fichier part aujourd'hui vers OpenAI. C'est le
+  point sensible concret, pas hypothétique — déjà vrai en production.
+
+**Décision :** pas de changement de code maintenant, mais le pattern
+"LLM pour comprendre, Python pour exécuter" (§0 point 4) reste
+volontairement agnostique du fournisseur — remplacer OpenAI par un LLM
+local (Ollama ou équivalent) pour le routage ne demande pas de
+restructurer l'architecture. Le jour où un vrai dossier confidentiel
+existe, deux options à trancher à ce moment-là (pas avant) : désactiver
+le résumé LLM pour ce dossier, ou le faire passer par un modèle local.
 
 ---
 
@@ -190,3 +263,7 @@ directement sur ce schéma).
 
 - 2026-08-28 : première version — 0.1, 0.3, 0.4 rédigés après recensement
   factuel du code Nigel existant (voir PLAN.md pour le suivi des cases).
+- 2026-08-29 : 0.5 (construction des salles : projets autonomes d'abord,
+  intégration seulement quand méritée) et 0.6 (confidentialité/LLM local
+  possible plus tard) ajoutées après discussion d'architecture avec
+  Chris. 0.4.3 mis à jour (schéma validé par l'usage sur 6 phases).
