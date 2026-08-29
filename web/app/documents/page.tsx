@@ -65,6 +65,7 @@ function DocumentsPageInner() {
   const [docSearchLoading, setDocSearchLoading] = useState(false);
   const [docQueryMode, setDocQueryMode] = useState<"motcle" | "question">("motcle");
   const [qaHistory, setQaHistory] = useState<QaEntry[]>([]);
+  const [qaHistoryOuvert, setQaHistoryOuvert] = useState(true);
   const [qaInput, setQaInput] = useState("");
   const [qaLoading, setQaLoading] = useState(false);
   const [reader, setReader] = useState<ReaderView | null>(null);
@@ -970,12 +971,25 @@ function DocumentsPageInner() {
                   le contenu, trop loin de la question posee. */}
               {qaHistory.length > 0 && (
                 <div className="flex flex-col gap-2 rounded-lg border border-border bg-surface/50 p-3">
-                  {qaHistory.map((entry, index) => (
-                    <div key={index} className="flex flex-col gap-1 text-sm">
-                      <p className="font-medium text-foreground">Q. {entry.question}</p>
-                      <p className="text-foreground/80">{entry.answer}</p>
-                    </div>
-                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setQaHistoryOuvert((ouvert) => !ouvert)}
+                    className="flex items-center justify-between text-sm font-medium text-foreground/80 hover:text-accent"
+                  >
+                    <span>
+                      {qaHistory.length} question{qaHistory.length > 1 ? "s" : ""}
+                    </span>
+                    <span>{qaHistoryOuvert ? "▲ Réduire" : "▼ Afficher"}</span>
+                  </button>
+                  {qaHistoryOuvert &&
+                    qaHistory.map((entry, index) => (
+                      <div key={index} className="flex flex-col gap-1 text-sm">
+                        <p className="font-medium text-foreground">
+                          Q{index + 1}. {entry.question}
+                        </p>
+                        <p className="text-foreground/80">{entry.answer}</p>
+                      </div>
+                    ))}
                 </div>
               )}
 
