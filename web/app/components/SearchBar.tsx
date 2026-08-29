@@ -1,13 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { callApi, firstErrorMessage, type Block } from "../lib/api";
+import { callApi, firstErrorMessage, type Block, type ListItem } from "../lib/api";
+
+function isTaskItem(item: ListItem) {
+  return item.done !== undefined;
+}
 
 export default function SearchBar() {
   const [message, setMessage] = useState("");
   const [block, setBlock] = useState<Block | null>(null);
   const [isError, setIsError] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [documentOuvert, setDocumentOuvert] = useState<{ name: string; body: string } | null>(null);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -17,6 +22,7 @@ export default function SearchBar() {
     setIsLoading(true);
     setBlock(null);
     setIsError(false);
+    setDocumentOuvert(null);
 
     const reponse = await callApi("/ask", { message: texte });
     const erreur = firstErrorMessage(reponse);
@@ -29,11 +35,21 @@ export default function SearchBar() {
     setIsLoading(false);
   }
 
-  async function handleToggle(id: string) {
+  async function handleToggleTask(id: string) {
     await callApi("/tasks/toggle", { reference_id: id });
     const reponse = await callApi("/tasks/list", { inclure_faites: true });
     const bloc = reponse.blocks[0];
     if (bloc) setBlock(bloc);
+  }
+
+  async function handleOpenDocument(item: ListItem) {
+    const reponse = await callApi("/documents/read", { nom_fichier: item.id });
+    const erreur = firstErrorMessage(reponse);
+    const bloc = reponse.blocks[0];
+    setDocumentOuvert({
+      name: item.label,
+      body: erreur ?? (bloc && bloc.kind === "text" ? bloc.body : ""),
+    });
   }
 
   return (
@@ -51,31 +67,58 @@ export default function SearchBar() {
           </div>
         )}
 
-        {block && block.kind === "list" && (
+        {documentOuvert && (
+          <div className="flex max-h-64 flex-col gap-2 overflow-y-auto rounded-xl border border-border bg-surface p-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-medium text-foreground">{documentOuvert.name}</h2>
+              <button onClick={() => setDocumentOuvert(null)} className="text-xs text-accent">
+                Fermer
+              </button>
+            </div>
+            <p className="whitespace-pre-wrap text-sm text-foreground/80">{documentOuvert.body}</p>
+          </div>
+        )}
+
+        {block && block.kind === "list" && !documentOuvert && (
           <ul className="flex max-h-64 flex-col gap-2 overflow-y-auto">
-            {block.items.map((item) => (
-              <li key={item.id}>
-                <button
-                  onClick={() => handleToggle(item.id)}
-                  className="flex w-full items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-left"
-                >
-                  <span
-                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-xs ${
-                      item.done
-                        ? "border-accent bg-accent text-white"
-                        : "border-border text-transparent"
-                    }`}
+            {block.items.map((item) =>
+              isTaskItem(item) ? (
+                <li key={item.id}>
+                  <button
+                    onClick={() => handleToggleTask(item.id)}
+                    className="flex w-full items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-left"
                   >
-                    ✓
-                  </span>
-                  <span
-                    className={`flex-1 text-sm ${item.done ? "text-foreground/40 line-through" : "text-foreground"}`}
+                    <span
+                      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-xs ${
+                        item.done
+                          ? "border-accent bg-accent text-white"
+                          : "border-border text-transparent"
+                      }`}
+                    >
+                      ✓
+                    </span>
+                    <span
+                      className={`flex-1 text-sm ${item.done ? "text-foreground/40 line-through" : "text-foreground"}`}
+                    >
+                      {item.label}
+                    </span>
+                  </button>
+                </li>
+              ) : (
+                <li key={item.id}>
+                  <button
+                    onClick={() =>
+                      item.meta?.type === "dossier" ? undefined : handleOpenDocument(item)
+                    }
+                    disabled={item.meta?.type === "dossier"}
+                    className="flex w-full items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-left disabled:opacity-60"
                   >
-                    {item.label}
-                  </span>
-                </button>
-              </li>
-            ))}
+                    <span className="shrink-0">{item.meta?.type === "dossier" ? "📁" : "📄"}</span>
+                    <span className="flex-1 truncate text-sm text-foreground">{item.label}</span>
+                  </button>
+                </li>
+              ),
+            )}
             {block.items.length === 0 && (
               <p className="text-sm text-foreground/60">Aucun résultat.</p>
             )}
