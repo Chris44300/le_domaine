@@ -23,6 +23,7 @@ export default function SearchBar() {
     setBlock(null);
     setIsError(false);
     setDocumentOuvert(null);
+    setMessage("");
 
     const reponse = await callApi("/ask", { message: texte });
     const erreur = firstErrorMessage(reponse);
