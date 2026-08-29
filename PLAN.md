@@ -429,6 +429,41 @@ toucher à l'orchestrateur ni à Telegram.
     aux résultats de recherche, clic Résumer suivi immédiatement d'un
     clic Lire sur un autre document confirmant que le résumé tardif ne
     force plus l'écran. Build de production propre.
+  - [x] 3bis.2sexies (ajouté le 2026-08-29, cinquième round de retours,
+        après confirmation Tailscale de Chris) :
+    - Téléchargement groupé réellement fonctionnel : la boucle de clics
+      `<a>` synthétiques se heurtait au blocage natif de Chrome sur les
+      téléchargements automatiques multiples sans permission explicite -
+      remplacée par un vrai zip côté serveur
+      (`POST /documents/zip`, construit en mémoire, peut mélanger
+      plusieurs dossiers). Pas de découpage par taille comme côté
+      Telegram (`TELEGRAM_ZIP_MAX_BYTES`, lié au plafond de pièce jointe
+      de Telegram) - un garde-fou plus large (500 Mo) suffit pour un
+      navigateur.
+    - "Voir la suite" sous un contenu tronqué en lecture simple (pas
+      seulement en recherche) et navigation par onglet pour les fichiers
+      Excel à plusieurs feuilles (`budget_multi_feuilles_test.xlsx`) -
+      les deux réutilisent le lecteur contextuel déjà construit
+      (`read-around`), aucune nouvelle UI de pagination. Le marqueur
+      `"=== Feuille : X ==="` que `lire_fichier_xlsx` posait déjà pour
+      Telegram est simplement repéré côté web.
+    - Bandeau de sélection multiple déplacé en position fixe en bas
+      d'écran (au lieu d'être inséré dans le flux, ce qui faisait
+      descendre toute la liste d'un cran à chaque coche).
+    - Navigation clarifiée : bouton "↩ Retour" déplacé à droite de
+      l'en-tête (distinct du fil d'Ariane) ; "🏠" devient "🏠 Accueil" ;
+      le lien du haut devient "← Retour au Domaine" - les deux "Accueil"
+      se confondaient.
+    - "Voir" sur une sélection multiple d'images ouvre désormais la vue
+      grille par défaut.
+    - Chevron "›" ajouté aux résultats cliquables de la barre de
+      recherche du Domaine (`SearchBar.tsx`) : ils fonctionnaient déjà,
+      rien ne signalait juste qu'ils étaient cliquables.
+    Vérifié en conditions réelles : zip de fichiers de dossiers
+    différents en un clic, suite de lecture reprenant exactement où le
+    texte tronqué s'arrêtait, navigation vers un onglet Excel précis,
+    bandeau de sélection fixe ne déplaçant plus la liste. 405 tests
+    verts côté Nigel, build de production propre côté web.
 - [x] 3bis.3 Intégrés à l'écran d'accueil : deux nouvelles tuiles
       cliquables (Tâches, Documents) ; Ménage reste en attente de la
       Phase 4.
@@ -480,26 +515,51 @@ depuis le Domaine, où que Chris se trouve.
 > vers le vrai mini-PC/NAS plus tard : reconnecter Tailscale sur la
 > nouvelle machine, rien à changer côté Domaine/API.
 
-- [ ] 5.1 🎓 Tailscale :
-  - [ ] 5.1.1 Créer un compte, installer sur le PC actuel de Chris (relais
-        provisoire — migration vers le mini-PC/NAS plus tard).
-  - [ ] 5.1.2 Installer sur le téléphone (et tout autre appareil
-        personnel).
-  - [ ] 5.1.3 Vérifier qu'un appareil peut "voir" le PC par son adresse
-        Tailscale.
-- [ ] 5.2 Exposer l'API FastAPI UNIQUEMENT sur le réseau Tailscale
-      (jamais sur l'internet public directement).
-- [ ] 5.3 Sur Vercel, mettre à jour la variable d'environnement de l'URL
-      de l'API pour pointer vers l'adresse Tailscale du PC.
+- [x] 5.1 🎓 Tailscale (fait par Chris, confirmé le 2026-08-29) :
+  - [x] 5.1.1 Compte créé, installé sur le PC actuel de Chris (relais
+        provisoire — migration vers le mini-PC/NAS plus tard). Adresse
+        Tailscale du PC : `100.113.182.103` ("pcseeouest016").
+  - [x] 5.1.2 Installé sur le téléphone. Adresse Tailscale :
+        `100.65.47.83` ("s23-ultra-de-chris").
+  - [x] 5.1.3 Les deux appareils apparaissent connectés dans
+        `tailscale status` — l'interface Tailscale est classée en profil
+        pare-feu Windows "Private", distinct du Wi-Fi ("Public"), ce qui
+        permettra une règle de pare-feu ciblée juste sur elle (voir 5.2).
+- [x] 5.2 Exposer l'API FastAPI sur le réseau Tailscale — trouvé et
+      corrigé le 2026-08-29 : l'API n'a jamais été lancée qu'avec le bind
+      uvicorn par défaut (`127.0.0.1`, localhost uniquement), donc
+      injoignable même en local réseau AVANT même l'arrivée de
+      Tailscale. Lancer désormais avec `--host 0.0.0.0` (vérifié
+      joignable depuis l'IP Tailscale du PC).
+  - [ ] Reste à faire par Chris (modification de pare-feu — hors de ce
+        que Claude peut faire lui-même) : ajouter une règle de pare-feu
+        Windows entrante sur le port 8000, restreinte à l'interface
+        Tailscale (`New-NetFirewallRule -DisplayName "Nigel API (Tailscale)"
+        -Direction Inbound -Protocol TCP -LocalPort 8000 -Action Allow
+        -InterfaceAlias "Tailscale"` en PowerShell administrateur) — sans
+        cette règle, le profil "Public"/"Private" bloque les connexions
+        entrantes par défaut même si uvicorn écoute sur toutes les
+        interfaces.
+- [ ] 5.3 Sur Vercel, mettre à jour la variable d'environnement
+      `NEXT_PUBLIC_API_URL` pour pointer vers `http://100.113.182.103:8000`
+      (l'adresse Tailscale du PC) puis redéployer (les variables
+      `NEXT_PUBLIC_*` sont figées au moment du build, un changement de
+      valeur seul ne suffit pas). À faire par Chris dans le dashboard
+      Vercel — Claude n'a pas d'accès de déploiement configuré. Le fetch
+      reste côté client (dans le navigateur du visiteur), donc ça marche
+      tant que l'appareil qui consulte le Domaine est lui-même sur le
+      tailnet (le téléphone de Chris l'est déjà) — Vercel lui-même n'a
+      pas besoin d'être sur le réseau Tailscale.
 - [x] 5.4 Construire la pièce Documents dans le Domaine — fait dès la
       Phase 3bis (`app/documents`), avant même le tunnel réseau :
   - [x] 5.4.1 Liste de dossiers/fichiers (réutilise l'API de la Phase 1).
   - [x] 5.4.2 Recherche.
   - [x] 5.4.3 Lecture d'un fichier.
   - [x] 5.4.4 Téléchargement — fait le 2026-08-29 (`GET /documents/download`,
-        voir 3bis.2bis). Zip multi-fichiers pas encore fait (un seul
-        fichier à la fois pour l'instant) — à ajouter si le besoin réel
-        se présente.
+        voir 3bis.2bis). Zip multi-fichiers fait le même jour aussi (voir
+        3bis.2quinquies, dernier point) — le téléchargement par clics
+        successifs se heurtait au blocage natif de Chrome sur les
+        téléchargements automatiques multiples.
 - [ ] 5.5 Gérer proprement le cas "le PC est éteint/injoignable" côté Web
       (message clair, pas une erreur technique brute) — la base existe
       déjà (`callApi` renvoie un message d'erreur lisible), à vérifier
@@ -750,3 +810,23 @@ années sans devenir un fardeau.
   (`POST /documents/question`), pas le code partagé avec Telegram.
   Corrigé à la racine (fonction partagée déplacée dans `core/fichiers.py`)
   plutôt que rapiécé côté web une seconde fois. Phase 6.1 complète.
+- 2026-08-29 : Chris confirme avoir créé le compte Tailscale et l'avoir
+  installé sur son PC et son téléphone. Vérifié connecté (`tailscale
+  status`) et trouvé au passage que l'API n'était joignable que depuis
+  `127.0.0.1` (bind uvicorn par défaut) — jamais testé au-delà du
+  local avant. Corrigé (5.2). Reste à Chris : la règle de pare-feu
+  (modification système, hors de ce que Claude fait lui-même) et la mise
+  à jour de la variable Vercel (accès dashboard que Claude n'a pas).
+- 2026-08-29 : cinquième round de retours après ce test Tailscale
+  (3bis.2sexies) — zip de téléchargement groupé (le mécanisme précédent
+  ne marchait pas du tout, bloqué par Chrome), suite de lecture pour le
+  contenu tronqué, navigation par onglet Excel, bandeau de sélection
+  fixe, clarification Retour/Accueil, vue grille par défaut sur la
+  galerie, chevrons sur la recherche du Domaine. Chris a aussi signalé
+  qu'un document PDF scanné ("Modificatif au règlement de copropriété")
+  échoue avec "Tesseract n'est pas installé" — contrairement au docx
+  déjà testé qui n'a pas besoin d'OCR. C'est un binaire système
+  (Tesseract) manquant sur la machine de Chris, pas un bug de code ;
+  installation à faire par lui (lien fourni dans le message d'erreur
+  existant, `TESSERACT_CMD` dans `.env` si besoin d'un chemin
+  personnalisé) — Claude n'installe pas d'exécutables système.
