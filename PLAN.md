@@ -524,28 +524,50 @@ entre les pièces déjà branchées, pas seulement interroger les documents.
       `ARCHITECTURE.md` §0.4.1 pour pouvoir un jour reconstruire des
       blocs structurés depuis `/ask`. Aucun changement de comportement
       pour Telegram/terminal (361 tests verts).
-- [ ] 6.1 Généraliser `POST /ask` pour router entre tous les domaines déjà
-      exposés (documents, tâches, bientôt Ménage si sa donnée passe par
-      l'API plutôt que par lien direct).
+- [x] 6.1 Généraliser `POST /ask` pour router entre tous les domaines déjà
+      exposés (documents, tâches ; Ménage reste un lien direct, Phase 4,
+      pas encore de données Ménage exposées par l'API).
   - [x] Tranche 1 (tâches) : `voir_taches`/`voir_restantes` tapés en texte
         libre renvoient désormais un vrai bloc `list` cliquable (même
         constructeur que `POST /tasks/list`), rendu en menu dans la barre
         de recherche du Domaine — plus du texte brut. Vérifié en
         conditions réelles (liste cliquable, bascule fait/pas fait
         depuis la barre de recherche, "aide" toujours en texte normal).
-  - [x] Tranche 2 (documents) : même principe pour `rechercher_fichier`
-        et `lister_fichiers` en texte libre — vrai bloc `list` cliquable
-        (mêmes constructeurs que `POST /documents/search`/`/list`), lu
-        directement depuis les paramètres déjà présents dans le payload
-        de l'orchestrateur (`mot_cle`, `dossier_relatif`), sans reparser
-        le texte utilisateur. Cas "pending" (mot-clé pas encore donné)
-        reste correctement en texte normal. Vérifié en conditions
-        réelles : recherche + lecture inline depuis la barre de
-        recherche. `rechercher_contenu_fichiers` et les autres intentions
-        documentaires (lire/résumer par texte libre) pas encore couverts
-        — même principe applicable plus tard si besoin réel.
-  - [ ] Ménage : pas encore de données Ménage exposées par l'API (reste
-        un lien direct, Phase 4).
+  - [x] Tranche 2 (documents, recherche/liste) : même principe pour
+        `rechercher_fichier` et `lister_fichiers` en texte libre — vrai
+        bloc `list` cliquable (mêmes constructeurs que
+        `POST /documents/search`/`/list`), lu directement depuis les
+        paramètres déjà présents dans le payload de l'orchestrateur
+        (`mot_cle`, `dossier_relatif`), sans reparser le texte
+        utilisateur. Cas "pending" (mot-clé pas encore donné) reste
+        correctement en texte normal. Vérifié en conditions réelles :
+        recherche + lecture inline depuis la barre de recherche.
+  - [x] Tranche 3 (documents, contenu/lecture/résumé/question, ajoutée le
+        2026-08-29) : les 4 intentions documentaires restantes.
+        `rechercher_contenu_fichiers` et `lire_fichier` réutilisent des
+        constructeurs de bloc (nouveau `build_read_block`, même refactor
+        que les autres routes) — pas d'appel LLM, recalcul sans risque.
+        `resumer_fichier`/`question_fichier` ne sont PAS recalculés : le
+        bloc réutilise directement `reponse.text` déjà produit par
+        l'orchestrateur (évite de payer un second appel LLM juste pour
+        construire le bloc), en y ajoutant seulement le contrôle de
+        lisibilité OCR (lecture locale, pas un appel LLM).
+        Bug plus profond trouvé en préparant ce point : le chemin
+        Telegram/majordome (`outil_question_fichier_texte_local`)
+        utilisait encore la troncature aveugle du début du document
+        (`charger_fichier_texte_pour_llm`) — exactement le bug que Chris
+        avait signalé et que `construire_contexte_cible` corrigeait déjà,
+        mais uniquement côté web (voir 3bis.2quater). Corrigé à la racine
+        plutôt que contourné : `construire_contexte_cible` a déménagé de
+        `api/document_intelligence.py` (marqué à tort "spécifique au
+        web") vers `core/fichiers.py` (partagé), et
+        `outil_question_fichier_texte_local` l'utilise désormais aussi —
+        un seul comportement correct sur les deux canaux, au lieu de deux
+        copies dont une buguée. Vérifié en conditions réelles via la
+        barre de recherche du Domaine (pas seulement en tests) : le
+        contexte ciblé retrouve bien le passage enfoui (article 1169) du
+        même document dégradé que Chris avait signalé, via ce chemin
+        aussi. 397 tests verts.
 - [ ] 6.2 Reprendre et étendre le pattern déjà en place (`registry.py`) :
       LLM pour comprendre/choisir l'outil, Python pour l'exécuter, LLM
       pour reformuler le résultat.
@@ -717,3 +739,14 @@ années sans devenir un fardeau.
   l'écran après un "retour") via un jeton de navigation - illustre
   l'intérêt de garder une correction ciblée plutôt qu'un correctif large
   quand l'effet de bord n'est pas évident à l'avance.
+- 2026-08-29 : Chris a explicitement laissé la main pour avancer sur la
+  suite du plan. Repris la Phase 6.1 (majordome) là où elle s'était
+  arrêtée le 28 : les 4 intentions documentaires manquantes (contenu,
+  lecture, résumé, question) en texte libre depuis la barre de recherche
+  du Domaine. En les préparant, trouvé que le chemin Telegram/majordome
+  pour "question sur un fichier" avait le même bug de troncature que
+  Chris avait signalé et que je pensais avoir corrigé - la correction du
+  round précédent n'avait touché que la route web dédiée
+  (`POST /documents/question`), pas le code partagé avec Telegram.
+  Corrigé à la racine (fonction partagée déplacée dans `core/fichiers.py`)
+  plutôt que rapiécé côté web une seconde fois. Phase 6.1 complète.
