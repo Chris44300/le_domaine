@@ -769,6 +769,39 @@ entre les pièces déjà branchées, pas seulement interroger les documents.
         contexte ciblé retrouve bien le passage enfoui (article 1169) du
         même document dégradé que Chris avait signalé, via ce chemin
         aussi. 397 tests verts.
+  - [x] Tranche 4 (ajoutée le 2026-08-29, suite au test réel de Chris sur
+        la recherche du Domaine) : les tranches précédentes construisaient
+        un bloc cliquable à partir de (action, payload), mais
+        `handle_document_flow()` emprunte en réalité une bonne douzaine de
+        chemins internes différents (navigation "retour", résolution
+        implicite sur un mot seul, confirmation d'action en attente,
+        contexte de dossier courant...) qui n'utilisaient pas tous le même
+        nom d'action, ou perdaient le dossier/fichier résolu en route
+        avant d'atteindre `_bloc_structure_pour`. Le texte Telegram restait
+        toujours correct (ces bugs étaient invisibles sur ce canal), mais
+        le web retombait sur du texte brut, jamais de bouton.
+        Généralisé via trois constructeurs canoniques dans
+        `document_flow.py` (`_resultat_lister_dossier`/
+        `_resultat_lire_fichier`/`_resultat_rechercher_fichier`/
+        `_resultat_rechercher_contenu`), utilisés à chaque endroit où le
+        code produit une vraie liste de dossier, une recherche par nom ou
+        une lecture de fichier — quel que soit le chemin interne emprunté.
+        Deux bugs concrets corrigés au passage (distincts de celui d'hier
+        sur "anissa") : la navigation "retour" et le fallback de choix
+        libre sur un dossier utilisaient tous les deux un nom d'action
+        jamais reconnu côté web ; l'intention explicite "lister_fichiers"
+        perdait le dossier ciblé et listait la racine à la place. 415
+        tests verts (3 nouveaux). Volontairement laissé de côté pour
+        garder le lot réviewable : l'harmonisation de `resumer_fichier`/
+        `question_fichier` (déjà fonctionnels en texte, l'avertissement
+        OCR n'est pas uniforme partout) et le concept de "fiche fichier"
+        (menu d'action après sélection) qui n'a pas d'équivalent web.
+        **Reste à faire par Chris : relancer l'API** pour charger ce
+        code (testé ici sur une instance isolée port 8010, sans toucher
+        au serveur HTTPS en cours d'utilisation) — puis retester "cherche
+        anissa" et d'autres phrasés naturels : certains devraient
+        maintenant produire un bouton, d'autres échouent encore plus tôt
+        (détection d'intention, hors scope de cette tranche).
 - [ ] 6.2 Reprendre et étendre le pattern déjà en place (`registry.py`) :
       LLM pour comprendre/choisir l'outil, Python pour l'exécuter, LLM
       pour reformuler le résultat.
