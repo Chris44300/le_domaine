@@ -845,6 +845,34 @@ entre les pièces déjà branchées, pas seulement interroger les documents.
     suite, redemander à Claude de la relancer après chaque changement de
     code plutôt que de la lancer soi-même, pour éviter que les deux
     tournent en parallèle sur le même port).
+  - [x] **Deux vrais bugs trouvés par Chris en retestant** (même jour) :
+    - "ça me renvoie toujours vers anissa" — la barre de recherche
+      n'envoyait jamais de `session_id` à `/ask`, qui retombe alors sur
+      un identifiant par défaut (`"api-session"`) **partagé par toutes
+      les recherches, de tous les visiteurs, jamais réinitialisé**. Le
+      dossier résolu par une recherche restait donc mémorisé côté
+      serveur et polluait les recherches suivantes sans rapport.
+      Corrigé : une session jetable (UUID) par recherche — une barre de
+      recherche n'a pas à se souvenir de la requête précédente.
+    - "le retour me remet à l'accueil, pas dans Aide Anissa" — les
+      items d'un LISTING de dossier (`lister_fichiers`, ex. "anissa"
+      résolu en dossier) ne portaient que le nom nu du fichier, sans son
+      chemin parent (contrairement aux résultats d'une recherche par
+      nom/contenu, qui portent déjà le chemin complet) — la vraie cause
+      remontait donc à l'API (`build_list_block`), pas seulement au
+      front. Le lien profond vers la salle Documents atterrissait donc
+      à la racine. Corrigé aux deux bouts : l'API expose maintenant
+      `meta.dossier` sur chaque item, et la barre de recherche s'en sert
+      pour reconstruire le chemin complet.
+    - Vérifié en direct : "anissa" → "notes" → "budget" à la suite ne se
+      polluent plus entre elles ; ouvrir un fichier trouvé via "anissa"
+      puis faire "Retour" ramène bien dans "Aide Anissa". 417 tests
+      verts côté API.
+    - **Limite confirmée, pas nouvelle** : "budget" seul (sans verbe
+      comme "cherche"/"où est") ne déclenche toujours pas de recherche
+      côté LLM, même avec une session neuve — c'est exactement la
+      limite déjà notée juste au-dessus (réglage de prompt), pas une
+      régression liée aux deux bugs ci-dessus.
 - [ ] 6.3 Revisiter seulement maintenant (pas avant) la question du
       routage à 2 étages (classer le domaine avant d'exposer ses outils au
       LLM) — à ne faire que si le nombre d'outils cause un vrai problème
