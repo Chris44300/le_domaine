@@ -14,22 +14,9 @@ function premierExtrait(item: ListItem): { texte: string; ligne: number | null }
   return Array.isArray(extraits) ? (extraits[0] as { texte: string; ligne: number | null }) : undefined;
 }
 
-// Un même fichier peut contenir plusieurs occurrences du mot cherché
-// (meta.extraits en porte déjà la liste complète côté API), mais
-// n'affichait jusqu'ici que la première - perte d'information remontée
-// par Chris ("dans un même document il y en a plusieurs"). Éclate
-// chaque occurrence en sa propre ligne cliquable, chacune menant
-// directement au bon endroit (ouvrirDansDocuments lit premierExtrait,
-// qui devient alors CETTE occurrence précise, pas toujours la première).
-function eclaterParOccurrence(items: ListItem[]): ListItem[] {
-  return items.flatMap((item) => {
-    const extraits = item.meta?.extraits;
-    if (!Array.isArray(extraits) || extraits.length <= 1) return [item];
-    return extraits.map((extrait) => ({
-      ...item,
-      meta: { ...item.meta, extraits: [extrait] },
-    }));
-  });
+function toutesLesOccurrences(item: ListItem): { texte: string; ligne: number | null }[] {
+  const extraits = item.meta?.extraits;
+  return Array.isArray(extraits) ? (extraits as { texte: string; ligne: number | null }[]) : [];
 }
 
 export default function SearchBar() {
@@ -47,6 +34,14 @@ export default function SearchBar() {
   const [dernierMotCle, setDernierMotCle] = useState("");
   const [contenuDejaCherche, setContenuDejaCherche] = useState(false);
   const [contenuEnCours, setContenuEnCours] = useState(false);
+  // Historique du mode "Texte" - demande de Chris après avoir constaté
+  // que chaque question repartait de zéro ("donne moi l'accès" ne
+  // voulait rien dire sans savoir qu'on venait de parler du dossier
+  // anissa). Entièrement côté client : jamais stocké côté serveur (voir
+  // /agent/ask), conservé tant que l'utilisateur ne clique pas sur
+  // "Réinitialiser" - un rechargement de page l'efface aussi, ce qui
+  // est le comportement attendu d'un état non persisté.
+  const [historiqueTexte, setHistoriqueTexte] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
   // Une recherche lancee pendant qu'une precedente est encore en vol ne
   // doit jamais se faire ecraser par la reponse tardive de celle-ci -
   // bug trouve par Chris ("je tape budget je retombe sur le texte
@@ -59,6 +54,12 @@ export default function SearchBar() {
     setIsError(false);
     setDernierMotCle("");
     setContenuDejaCherche(false);
+  }
+
+  function reinitialiserConversationTexte() {
+    setHistoriqueTexte([]);
+    setBlock(null);
+    setIsError(false);
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -114,19 +115,32 @@ export default function SearchBar() {
     // Mode "Texte" : passe par la boucle agentique (/agent/ask), pas par
     // /ask (routeur historique à décision unique, gardé pour
     // Telegram/terminal - voir Le Domaine/PLAN.md, "Architecture cible
-    // pour le mode Texte"). Contrairement à /ask, /agent/ask n'a pas
-    // besoin de session_id : chaque appel est indépendant par nature
-    // (aucun état mémorisé entre deux questions), donc pas de risque de
-    // pollution comme celui trouvé sur /ask.
-    const reponse = await callApi("/agent/ask", { message: texte });
+    // pour le mode Texte"). Contrairement à /ask, /agent/ask ne mémorise
+    // rien côté serveur (pas de session_id) - la suite de conversation
+    // demandée par Chris est portée par historiqueTexte, ici, côté
+    // client, et renvoyée explicitement à chaque appel. Chaque
+    // utilisateur garde donc sa propre conversation, sans risque de
+    // pollution entre deux visiteurs comme celle trouvée sur /ask.
+    const historiqueEnvoye = historiqueTexte;
+    setHistoriqueTexte((h) => [...h, { role: "user", content: texte }]);
+    setBlock(null);
+
+    const reponse = await callApi("/agent/ask", { message: texte, historique: historiqueEnvoye });
     if (requestTokenRef.current !== token) return;
 
     const erreur = firstErrorMessage(reponse);
     setIsError(erreur !== null);
     if (erreur) {
-      setBlock({ kind: "text", body: erreur });
+      setHistoriqueTexte((h) => [...h, { role: "assistant", content: erreur }]);
     } else {
-      setBlock(reponse.blocks[0] ?? { kind: "text", body: "Pas de réponse." });
+      const texteReponse = reponse.blocks[0]?.kind === "text" ? reponse.blocks[0].body : "Pas de réponse.";
+      setHistoriqueTexte((h) => [...h, { role: "assistant", content: texteReponse }]);
+      // Bloc navigable optionnel (voir api/agent.py) : liste cliquable
+      // en plus du texte quand la boucle a trouvé un fichier/dossier
+      // précis - demande de Chris ("la recherche par Texte ne sait pas
+      // [donner l'accès à un document]").
+      const blocListe = reponse.blocks[1];
+      setBlock(blocListe?.kind === "list" ? blocListe : null);
     }
     setIsLoading(false);
   }
@@ -146,7 +160,12 @@ export default function SearchBar() {
     if (erreur) return; // le titre a déjà répondu ; une erreur ici n'efface pas ces résultats
 
     const blocContenu = reponse.blocks[0];
-    const itemsContenu = blocContenu?.kind === "list" ? eclaterParOccurrence(blocContenu.items) : [];
+    // Un même fichier garde toutes ses occurrences groupées dans une
+    // seule carte (meta.extraits) - affichées comme sous-lignes
+    // cliquables, pas éclatées en cartes séparées répétant le même nom
+    // de fichier (retour de Chris sur "BFR" : "ça pourrait être bien de
+    // regrouper cela en une source avec deux occurrences").
+    const itemsContenu = blocContenu?.kind === "list" ? blocContenu.items : [];
 
     setBlock((precedent) => {
       const itemsActuels = precedent?.kind === "list" ? precedent.items : [];
@@ -161,7 +180,7 @@ export default function SearchBar() {
     if (bloc) setBlock(bloc);
   }
 
-  function ouvrirDansDocuments(item: ListItem) {
+  function ouvrirDansDocuments(item: ListItem, ligneChoisie?: number | null) {
     // Emmene directement au bon endroit dans la salle Documents plutot
     // que d'ouvrir un apercu limite dans ce petit widget - demande de
     // Chris ("m'amener directement dans le bon niveau de l'application
@@ -190,8 +209,11 @@ export default function SearchBar() {
       // (bug remonté par Chris : le message d'erreur clignotait avant
       // que l'image s'affiche).
       if (item.meta?.image) params.set("image", "1");
-      const extrait = premierExtrait(item);
-      if (extrait?.ligne) params.set("ligne", String(extrait.ligne));
+      // ligneChoisie : l'utilisateur a cliqué sur UNE occurrence précise
+      // parmi plusieurs regroupées sous ce fichier - sinon, la première
+      // (premierExtrait) comme avant.
+      const ligne = ligneChoisie !== undefined ? ligneChoisie : premierExtrait(item)?.ligne;
+      if (ligne) params.set("ligne", String(ligne));
     }
     router.push(`/documents?${params.toString()}`);
   }
@@ -199,6 +221,32 @@ export default function SearchBar() {
   return (
     <div className="fixed inset-x-0 bottom-0 border-t border-border bg-background/95 backdrop-blur px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4">
       <div className="mx-auto flex w-full max-w-xl flex-col gap-3">
+        {mode === "texte" && historiqueTexte.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <div className="flex max-h-64 flex-col gap-2 overflow-y-auto rounded-lg border border-border bg-surface/50 p-3">
+              {historiqueTexte.map((tour, index) => (
+                <div
+                  key={index}
+                  className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
+                    tour.role === "user"
+                      ? "self-end bg-accent text-white"
+                      : "self-start whitespace-pre-wrap border border-border bg-surface text-foreground"
+                  }`}
+                >
+                  {tour.content}
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={reinitialiserConversationTexte}
+              className="self-start text-xs text-foreground/50 hover:text-accent hover:underline"
+            >
+              🔄 Réinitialiser la conversation
+            </button>
+          </div>
+        )}
+
         {block && block.kind === "text" && (
           <div
             className={`max-h-48 overflow-y-auto whitespace-pre-wrap rounded-lg border px-4 py-3 text-sm ${
@@ -237,28 +285,43 @@ export default function SearchBar() {
                   </button>
                 </li>
               ) : (
-                // "index" dans la clef : une même occurrence de recherche
-                // dans le contenu (voir eclaterParOccurrence) peut faire
-                // apparaître le même fichier plusieurs fois, une ligne
-                // différente à chaque fois - item.id seul ne suffit plus
-                // à distinguer ces lignes.
-                <li key={`${item.id}-${index}`}>
-                  <button
-                    onClick={() => ouvrirDansDocuments(item)}
-                    className="flex w-full items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-left"
-                  >
+                // Toutes les occurrences d'un même fichier restent
+                // groupées sous UNE carte (pas une carte par occurrence,
+                // qui répétait le nom du fichier autant de fois - retour
+                // de Chris sur "BFR" trouvé deux fois dans "Cours JFM").
+                // "index" dans la clef : deux items différents peuvent
+                // partager le même id (dossiers différents, même nom de
+                // fichier).
+                <li key={`${item.id}-${index}`} className="flex flex-col gap-1 rounded-xl border border-border bg-surface px-4 py-3">
+                  <button onClick={() => ouvrirDansDocuments(item)} className="flex w-full items-center gap-3 text-left">
                     <span className="shrink-0">{item.meta?.type === "dossier" ? "📁" : "📄"}</span>
-                    <span className="flex-1 truncate text-sm">
-                      <span className="block truncate text-foreground">{item.label}</span>
-                      {premierExtrait(item) && (
-                        <span className="block truncate text-xs text-foreground/50">
-                          {premierExtrait(item)?.ligne ? `L${premierExtrait(item)?.ligne} : ` : ""}
-                          {premierExtrait(item)?.texte}
-                        </span>
-                      )}
-                    </span>
+                    <span className="flex-1 truncate text-sm text-foreground">{item.label}</span>
                     <span className="shrink-0 text-xs text-accent">Voir dans Documents ›</span>
                   </button>
+                  {toutesLesOccurrences(item).length > 1 ? (
+                    <div className="flex flex-col gap-0.5 pl-8">
+                      {toutesLesOccurrences(item).map((occurrence, i) => (
+                        <button
+                          key={i}
+                          onClick={() => ouvrirDansDocuments(item, occurrence.ligne)}
+                          className="truncate text-left text-xs text-foreground/50 hover:text-accent"
+                        >
+                          {occurrence.ligne ? `L${occurrence.ligne} : ` : ""}
+                          {occurrence.texte}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    premierExtrait(item) && (
+                      <button
+                        onClick={() => ouvrirDansDocuments(item, premierExtrait(item)?.ligne)}
+                        className="truncate pl-8 text-left text-xs text-foreground/50 hover:text-accent"
+                      >
+                        {premierExtrait(item)?.ligne ? `L${premierExtrait(item)?.ligne} : ` : ""}
+                        {premierExtrait(item)?.texte}
+                      </button>
+                    )
+                  )}
                 </li>
               ),
             )}
