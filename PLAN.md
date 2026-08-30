@@ -1089,6 +1089,30 @@ architecture.
     tour-là — mémoire et bloc navigable ne se combinent pas toujours
     parfaitement. À suivre sur usage réel plutôt qu'à sur-corriger sans
     plus de cas concrets.
+- [x] 6.2sexies (ajouté le 2026-08-30, retour sur capture d'écran) :
+      refonte de l'affichage du chat en mode Texte.
+  - Chaque tour de conversation porte désormais SES PROPRES sources et
+    son bloc navigable (nouveau type de bloc `"sources"` côté API,
+    petit lien italique cliquable, distinct d'un vrai bloc `"list"`) —
+    rendus DANS la bulle de réponse, plus un bloc flottant partagé qui
+    ne reflétait que le dernier tour et "disparaissait" au tour
+    suivant.
+  - Bouton plier/déplier la conversation — une conversation qui
+    grandissait masquait les icônes du Domaine en dessous. Se
+    redéploie automatiquement à la question suivante.
+  - Vérifié en direct sur deux tours successifs : chacun garde son
+    propre contenu (liste de fichiers pour l'un, citation de source
+    pour l'autre), sans rien écraser.
+  - **Reportés, pas oubliés** (proposés à Chris, pas encore validés) :
+    - Un menu de navigation entre occurrences dans la salle Documents
+      elle-même (comme le fait déjà Telegram — voir
+      `assistant/document_browser.py::_occurrence_actions` — précédent/
+      suivant), en plus des occurrences déjà cliquables individuellement
+      dans les résultats de recherche.
+    - Chat persistant sur toutes les pages (Tâches, Documents, Ménage),
+      pas seulement l'accueil — changement de portée (layout partagé)
+      plutôt qu'un ajout au composant de recherche, à traiter comme une
+      étape à part plutôt qu'un patch de plus.
 - [ ] 6.3 Revisiter seulement maintenant (pas avant) la question du
       routage à 2 étages (classer le domaine avant d'exposer ses outils au
       LLM) — à ne faire que si le nombre d'outils cause un vrai problème
