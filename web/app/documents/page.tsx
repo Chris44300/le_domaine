@@ -176,11 +176,17 @@ function DocumentsPageInner() {
         // recherche "dans ce document" lui-même.
         const motCleParam = searchParams.get("q");
         if (motCleParam) {
+          // Jeton manquant ici jusqu'ici (contrairement à tous les autres
+          // appels de ce fichier) - une réponse tardive ou un double appel
+          // (ex. double-clic sur une occurrence) pouvait écraser un état
+          // plus récent avec un résultat périmé.
+          const token = ++requestTokenRef.current;
           callApi("/documents/search-in-file", {
             nom_fichier: nomFichier,
             dossier: dossierDuFichier,
             mot_cle: motCleParam,
           }).then((reponse) => {
+            if (requestTokenRef.current !== token) return;
             const bloc = reponse.blocks[0];
             setOccurrencesRecherche(bloc?.kind === "list" ? bloc.items : null);
           });

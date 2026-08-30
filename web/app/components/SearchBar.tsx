@@ -368,7 +368,7 @@ export default function SearchBar() {
                             onClick={() => toggleDocumentsAssocies(index)}
                             className="self-start text-xs text-accent hover:underline"
                           >
-                            {toursDocumentsOuverts.has(index) ? "▲ Masquer" : "📄 Voir les documents associés"} ({tour.items.length})
+                            {toursDocumentsOuverts.has(index) ? "▲ Masquer" : "▼ Voir les documents associés"} ({tour.items.length})
                           </button>
                           {toursDocumentsOuverts.has(index) && (
                             <ul className="flex flex-col gap-2">
