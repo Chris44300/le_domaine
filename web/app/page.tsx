@@ -1,5 +1,4 @@
 import Link from "next/link";
-import SearchBar from "./components/SearchBar";
 
 const MENAGE_URL = "https://application-taches-menageres.vercel.app/";
 
@@ -36,8 +35,6 @@ export default function Home() {
           <span className="text-sm font-medium">Ménage</span>
         </a>
       </div>
-
-      <SearchBar />
     </div>
   );
 }

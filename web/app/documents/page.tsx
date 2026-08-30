@@ -70,6 +70,13 @@ function DocumentsPageInner() {
   const [qaLoading, setQaLoading] = useState(false);
   const [reader, setReader] = useState<ReaderView | null>(null);
   const [readerLoading, setReaderLoading] = useState(false);
+  // Occurrences du mot-clé cherché dans CE fichier (arrivé via un lien
+  // profond avec un mot-clé, voir useEffect plus bas) - permet un
+  // précédent/suivant entre occurrences directement depuis la vue de
+  // lecture, comme le fait déjà le bot Telegram (voir
+  // assistant/document_browser.py::_occurrence_actions). Demande de
+  // Chris après avoir vu qu'on pouvait avoir plusieurs occurrences.
+  const [occurrencesRecherche, setOccurrencesRecherche] = useState<ListItem[] | null>(null);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<Map<string, ListItem>>(new Map());
   const [selectedFolders, setSelectedFolders] = useState<Set<string>>(new Set());
@@ -163,6 +170,21 @@ function DocumentsPageInner() {
         setSelection({ item: itemCible, kind: "image" });
       } else if (ligneParam) {
         openReaderAt(itemCible, Number(ligneParam));
+        // Mot-clé cherché à l'origine (barre de recherche du Domaine) -
+        // permet d'afficher précédent/suivant entre occurrences une fois
+        // le document ouvert, sans que l'utilisateur ait à relancer une
+        // recherche "dans ce document" lui-même.
+        const motCleParam = searchParams.get("q");
+        if (motCleParam) {
+          callApi("/documents/search-in-file", {
+            nom_fichier: nomFichier,
+            dossier: dossierDuFichier,
+            mot_cle: motCleParam,
+          }).then((reponse) => {
+            const bloc = reponse.blocks[0];
+            setOccurrencesRecherche(bloc?.kind === "list" ? bloc.items : null);
+          });
+        }
       } else {
         openFile(itemCible, "read");
       }
@@ -275,6 +297,7 @@ function DocumentsPageInner() {
     setLoadingKey(key);
     setError(null);
     setReader(null);
+    setOccurrencesRecherche(null);
     // Un filtre/résultat de recherche-dans-le-document laissé par la vue
     // précédente ne doit jamais rester affiché par-dessus un nouveau
     // contenu (Lire -> Résumer, ou changement de fichier) - sinon le
@@ -397,6 +420,20 @@ function DocumentsPageInner() {
     }
   }
 
+  function indexOccurrenceActuelle(): number {
+    if (!reader || !occurrencesRecherche) return -1;
+    return occurrencesRecherche.findIndex((occurrence) => occurrence.meta?.ligne === reader.ligne);
+  }
+
+  function allerVersOccurrence(direction: 1 | -1) {
+    if (!reader || !occurrencesRecherche) return;
+    const indexActuel = indexOccurrenceActuelle();
+    const indexSuivant = indexActuel + direction;
+    const cible = occurrencesRecherche[indexSuivant];
+    if (!cible || typeof cible.meta?.ligne !== "number") return;
+    openReaderAt(reader.item, cible.meta.ligne);
+  }
+
   async function askQuestion(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selection || selection.kind === "image") return;
@@ -449,6 +486,7 @@ function DocumentsPageInner() {
     setSlowNotice(null);
     if (reader) {
       setReader(null);
+      setOccurrencesRecherche(null);
       return;
     }
     if (selection) {
@@ -804,6 +842,28 @@ function DocumentsPageInner() {
             <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
               {reader.warning}
             </p>
+          )}
+
+          {occurrencesRecherche && occurrencesRecherche.length > 1 && (
+            <div className="flex items-center justify-between rounded-lg bg-accent/10 px-3 py-1.5 text-xs text-accent">
+              <button
+                onClick={() => allerVersOccurrence(-1)}
+                disabled={readerLoading || indexOccurrenceActuelle() <= 0}
+                className="flex items-center gap-1 disabled:opacity-40"
+              >
+                ⬅️ Occurrence
+              </button>
+              <span>
+                Occurrence {indexOccurrenceActuelle() + 1} / {occurrencesRecherche.length}
+              </span>
+              <button
+                onClick={() => allerVersOccurrence(1)}
+                disabled={readerLoading || indexOccurrenceActuelle() >= occurrencesRecherche.length - 1}
+                className="flex items-center gap-1 disabled:opacity-40"
+              >
+                Occurrence ➡️
+              </button>
+            </div>
           )}
 
           <p className="max-h-96 overflow-y-auto whitespace-pre-wrap text-sm text-foreground/80">

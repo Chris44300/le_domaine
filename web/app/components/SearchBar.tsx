@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import Spinner from "./Spinner";
 import { callApi, firstErrorMessage, type Block, type ListItem } from "../lib/api";
@@ -25,6 +25,7 @@ type TourTexte =
 
 export default function SearchBar() {
   const router = useRouter();
+  const pathname = usePathname();
   const [mode, setMode] = useState<"motcle" | "texte">("motcle");
   const [message, setMessage] = useState("");
   const [block, setBlock] = useState<Block | null>(null);
@@ -53,6 +54,19 @@ export default function SearchBar() {
   // grandit masquait les icônes du Domaine en dessous (retour de
   // Chris : "je perds la vision sur le domaine").
   const [chatReduit, setChatReduit] = useState(false);
+  // Les documents associés à un tour ne s'affichent que sur demande
+  // (bouton "Voir les documents associés") - retour de Chris : les
+  // proposer par défaut à chaque tour prenait de la place pour rien.
+  const [toursDocumentsOuverts, setToursDocumentsOuverts] = useState<Set<number>>(new Set());
+
+  function toggleDocumentsAssocies(index: number) {
+    setToursDocumentsOuverts((precedent) => {
+      const suivant = new Set(precedent);
+      if (suivant.has(index)) suivant.delete(index);
+      else suivant.add(index);
+      return suivant;
+    });
+  }
   // Une recherche lancee pendant qu'une precedente est encore en vol ne
   // doit jamais se faire ecraser par la reponse tardive de celle-ci -
   // bug trouve par Chris ("je tape budget je retombe sur le texte
@@ -227,6 +241,11 @@ export default function SearchBar() {
       // (premierExtrait) comme avant.
       const ligne = ligneChoisie !== undefined ? ligneChoisie : premierExtrait(item)?.ligne;
       if (ligne) params.set("ligne", String(ligne));
+      // Transmet le mot-clé cherché (mode Mot-clé uniquement, seul
+      // endroit où il est connu au niveau du composant) - permet à la
+      // salle Documents d'afficher précédent/suivant entre occurrences
+      // dès l'ouverture, comme Telegram le fait déjà (demande de Chris).
+      if (mode === "motcle" && ligne && dernierMotCle) params.set("q", dernierMotCle);
     }
     router.push(`/documents?${params.toString()}`);
   }
@@ -295,6 +314,11 @@ export default function SearchBar() {
     );
   }
 
+  // Rendu dans le layout racine (toutes les pages), sauf l'écran de
+  // connexion - après tous les hooks, jamais avant, pour ne pas en
+  // sauter certains d'un rendu à l'autre (règle des hooks React).
+  if (pathname === "/login") return null;
+
   return (
     <div className="fixed inset-x-0 bottom-0 border-t border-border bg-background/95 backdrop-blur px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4">
       <div className="mx-auto flex w-full max-w-xl flex-col gap-3">
@@ -338,11 +362,22 @@ export default function SearchBar() {
                         </p>
                       )}
                       {tour.items && tour.items.length > 0 && (
-                        <ul className="flex flex-col gap-2">
-                          {tour.items.map((item, i) => (
-                            <CarteItem key={`${item.id}-${i}`} item={item} index={i} />
-                          ))}
-                        </ul>
+                        <div className="flex flex-col gap-2">
+                          <button
+                            type="button"
+                            onClick={() => toggleDocumentsAssocies(index)}
+                            className="self-start text-xs text-accent hover:underline"
+                          >
+                            {toursDocumentsOuverts.has(index) ? "▲ Masquer" : "📄 Voir les documents associés"} ({tour.items.length})
+                          </button>
+                          {toursDocumentsOuverts.has(index) && (
+                            <ul className="flex flex-col gap-2">
+                              {tour.items.map((item, i) => (
+                                <CarteItem key={`${item.id}-${i}`} item={item} index={i} />
+                              ))}
+                            </ul>
+                          )}
+                        </div>
                       )}
                     </div>
                   ),
