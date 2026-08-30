@@ -105,15 +105,14 @@ export default function SearchBar() {
       return;
     }
 
-    // Sans session_id explicite, /ask retombe sur "api-session" (défaut
-    // côté API), une session UNIQUE partagée par toutes les recherches de
-    // tous les visiteurs, jamais réinitialisée - bug trouvé par Chris ("ça
-    // me renvoie toujours vers anissa") : le dossier/fichier résolu par une
-    // recherche restait mémorisé et polluait les recherches suivantes,
-    // sans rapport. Une barre de recherche doit être sans mémoire d'une
-    // requête à l'autre - une session jetable par recherche règle ça.
-    const sessionId = crypto.randomUUID();
-    const reponse = await callApi("/ask", { message: texte, session_id: sessionId });
+    // Mode "Texte" : passe par la boucle agentique (/agent/ask), pas par
+    // /ask (routeur historique à décision unique, gardé pour
+    // Telegram/terminal - voir Le Domaine/PLAN.md, "Architecture cible
+    // pour le mode Texte"). Contrairement à /ask, /agent/ask n'a pas
+    // besoin de session_id : chaque appel est indépendant par nature
+    // (aucun état mémorisé entre deux questions), donc pas de risque de
+    // pollution comme celui trouvé sur /ask.
+    const reponse = await callApi("/agent/ask", { message: texte });
     if (requestTokenRef.current !== token) return;
 
     const erreur = firstErrorMessage(reponse);
