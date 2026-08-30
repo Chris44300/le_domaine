@@ -25,12 +25,37 @@ cette liste si l'ordre change plutôt que de la laisser devenir fausse.
    - [ ] **Étape 2 (écriture)** : ajouter une tâche/to-do, cocher fait,
      reporter — pas commencé, volontairement séparé (modifie de vraies
      données).
-   - [ ] **Étape 3 (intégration visuelle)** : faire vivre les écrans de
-     Ménage dans l'habillage du Domaine, pour naviguer entre "Domaine"
-     et "Ménage" sans changer d'application — comme c'est déjà le cas
-     entre Domaine et Documents. Demande de Chris le 2026-08-30. Pas
-     commencé — voir la note ci-dessous, ça touche à l'authentification
-     et recoupe la discussion sur le réseau multi-utilisateurs (item 4).
+   - **Étape 3 (intégration visuelle, fusion de code — accord de Chris
+     le 2026-08-30 "on fusionne le code")** : voir la note ci-dessous
+     pour le pourquoi. Découpée en 3 sous-étapes :
+     - [x] **A — Fondation auth** : Supabase Auth ajouté à Le Domaine
+       (`app/lib/supabase/`, `proxy.ts`, `app/login/LoginForm.tsx`,
+       `app/auth/confirm/route.ts`), en réutilisant tel quel le
+       mécanisme de connexion de Ménage (code reçu par email, saisi
+       dans l'appli — pas de lien cliquable, pour éviter les deux bugs
+       iOS connus : pré-visite des liens par Apple Mail, stockage PWA
+       séparé de Safari). Remplace l'ancien jeton unique
+       `DOMAIN_ACCESS_TOKEN` (route `/api/login` supprimée, devenue
+       inutile). Même projet Supabase que Ménage : comptes de Chris et
+       Mel déjà existants, rien à recréer. Vérifié en conditions
+       réelles le 2026-08-30 : connexion avec `chris.marec44@gmail.com`
+       (code à 8 chiffres, pas 6 comme l'annonçait le texte copié de
+       Ménage — corrigé dans Domaine), session posée, page d'accueil
+       affichée, session qui tient sur `/documents`. Ménage lui-même
+       reste déployé et inchangé (`application-taches-menageres.vercel.app`)
+       pendant toute la durée du chantier — zéro risque pour l'usage
+       quotidien de Mel.
+     - [ ] **B — Écrans Ménage portés dans Domaine** : pages
+       `/menage/*` dans ce dépôt, appelant Supabase directement côté
+       navigateur avec RLS (pas la clé secrète du connecteur Nigel,
+       réservée au serveur/chat). Aucune donnée déplacée — même base.
+       Pas commencé.
+     - [ ] **C — Permissions par personne** : qui voit quelle
+       application. Portée confirmée par Chris le 2026-08-30 : **Mel
+       a accès à Documents + Ménage + Chat, pas au reste** (pas de
+       Tâches Nigel, pas de future pièce Programmation/admin) ; Chris
+       garde accès à tout. Sert aussi de socle au chantier réseau
+       multi-utilisateurs (item 4). Pas commencé.
 3. **Pièce Reporting** (Phase 7) — un peu après Ménage.
 4. **Réseau multi-utilisateurs + permissions + "Programmation"** (chat
    admin capable de modifier le code, avec snapshots/retour en
@@ -78,9 +103,9 @@ de préférence :
   (cookies, session, deux déploiements à garder synchronisés) sans
   vraiment simplifier par rapport à la fusion.
 
-Pas commencé — mérite sa propre session de conception (comme
-l'architecture du chat en a eu une), pas un chantier à ouvrir en
-parallèle de l'étape 2 (écriture) sans en avoir discuté d'abord.
+Chris a validé l'option "fusionner le code" le 2026-08-30 ("ok, je suis
+chaud, on fusionne le code"). L'étape A (fondation auth) est faite et
+vérifiée — voir le détail dans l'item 2 ci-dessus.
 
 Hors liste ci-dessus mais notée : Telegram/API (Phase 3) est devenue
 **obsolète**, pas juste reportée — voir la note dans la Phase 3
