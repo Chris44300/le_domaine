@@ -4,6 +4,40 @@ Document vivant : à mettre à jour au fil de l'avancement (cocher les
 étapes, ajouter des notes, corriger ce qui s'avère faux à l'usage). Ce
 n'est pas un contrat figé — voir "Comment lire ce document" ci-dessous.
 
+## Feuille de route actuelle (priorisée par Chris, 2026-08-30)
+
+Ordre confirmé pour les prochains gros chantiers, à date. Mettre à jour
+cette liste si l'ordre change plutôt que de la laisser devenir fausse.
+
+1. **Documentation** ("pour moi dans 2 ans qui a tout oublié") — en
+   cours, voir les README de chaque dépôt.
+2. **Ménage réellement intégré** — aujourd'hui juste un lien externe,
+   aucune donnée accessible au chat/aux outils. Question ouverte de
+   Chris (réponse donnée le 2026-08-30, à formaliser en plan le moment
+   venu) : la donnée reste dans Supabase, une intégration API et/ou
+   visuelle ne la déplace pas — pas de risque de perte si c'est fait
+   proprement (ne jamais migrer/dupliquer la base, seulement ajouter
+   des accès dessus).
+3. **Pièce Reporting** (Phase 7) — un peu après Ménage.
+4. **Réseau multi-utilisateurs + permissions + "Programmation"** (chat
+   admin capable de modifier le code, avec snapshots/retour en
+   arrière) — voir la discussion du 2026-08-30 pour le découpage en
+   étapes proposé.
+5. **Confidentialité par tag sur certains documents** — architecture
+   déjà confirmée compatible (le garde-fou se poserait au point de
+   passage unique `executer_outil`), rien construit.
+6. **Sauvegardes du mini-PC** (au-delà de ce que Supabase gère déjà
+   tout seul pour Tâches/Ménage).
+7. **Alerte si le serveur tombe complètement** (aujourd'hui : alerte
+   sur l'échec du balayage planifié seulement, pas sur une panne
+   générale de l'API).
+
+Hors liste ci-dessus mais notée : Telegram/API (Phase 3) est devenue
+**obsolète**, pas juste reportée — voir la note dans la Phase 3
+elle-même. Rotation des clés API : juste une bonne hygiène selon Chris,
+idée retenue pour plus tard — un rappel Telegram périodique ("cela fait
+X semaines que les clés n'ont pas changé"), pas urgent.
+
 ## 0. Contexte — à lire en premier par toute nouvelle session
 
 **Projet.** "Le Domaine" est l'interface maîtresse personnelle de Chris :
@@ -274,22 +308,29 @@ complète.**
 
 ---
 
-## Phase 3 — Brancher Telegram sur le nouveau cœur (REPORTÉE, voir note)
+## Phase 3 — Brancher Telegram sur le nouveau cœur (OBSOLÈTE, voir note)
 
 > **Révision du 2026-08-28** : discussion avec Chris sur la direction long
 > terme — il envisage que Le Domaine devienne à terme l'interface
 > principale, avec ses propres menus cliquables (inspirés de l'UX
 > Telegram), au point que Telegram devienne un client secondaire/optionnel
 > plutôt qu'indispensable. Décision : pas de coupure ni de dépréciation
-> décidée aujourd'hui (Telegram continue de tourner normalement, sur son
-> chemin actuel, sans coût à le laisser vivre) — mais ça change la
-> priorité immédiate. Plutôt que de brancher Telegram sur l'API tout de
-> suite (ce qui le rendrait dépendant du serveur API sans bénéfice visible
-> pour Chris), on construit d'abord le menu cliquable côté Domaine
-> (documents + tâches), qui s'appuie sur les mêmes routes structurées déjà
-> testées en Phase 1. Cette phase reste valable et sera reprise plus tard,
-> une fois qu'il y aura un vrai bénéfice à migrer Telegram (ex. cohérence
-> de comportement entre les deux clients), pas avant.
+> décidée alors (Telegram continue de tourner normalement, sur son chemin
+> actuel, sans coût à le laisser vivre) — mais ça change la priorité
+> immédiate. Plutôt que de brancher Telegram sur l'API tout de suite (ce
+> qui le rendrait dépendant du serveur API sans bénéfice visible pour
+> Chris), on construit d'abord le menu cliquable côté Domaine (documents +
+> tâches), qui s'appuie sur les mêmes routes structurées déjà testées en
+> Phase 1.
+>
+> **Mise à jour du 2026-08-30** : Le Domaine a effectivement repris
+> l'usage quotidien. Chris confirme que Telegram ne deviendra **jamais**
+> un vrai client de l'API — cette phase n'est donc plus "reportée" mais
+> **obsolète** : le rôle cible de Telegram se limite à un canal de
+> communication léger serveur → téléphone (notifications, alertes comme
+> celle de `scripts/warmup_cache.py`), pas une interface à maintenir au
+> niveau du web. Section gardée ci-dessous pour mémoire (le détail des
+> étapes envisagées), pas comme travail à faire.
 
 *Retour dans le dépôt Nigel.*
 
