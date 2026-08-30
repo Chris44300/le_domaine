@@ -902,10 +902,93 @@ entre les pièces déjà branchées, pas seulement interroger les documents.
     une image trouvée par mot-clé affiche la visionneuse sans message
     d'erreur transitoire.
   - Limite du mode Mot-clé pour l'instant : ne cherche que dans les
-    documents (par nom de fichier), pas dans les tâches ni le contenu
-    des documents — pas d'outil de recherche par mot-clé équivalent pour
+    documents (nom ET contenu, voir 6.2ter juste en dessous), pas dans
+    les tâches — pas d'outil de recherche par mot-clé équivalent pour
     les tâches aujourd'hui. Extensible plus tard si le besoin se
     confirme, pas fait par anticipation.
+  - [x] Mode Mot-clé étendu à la recherche dans le CONTENU des
+        documents (pas seulement leur nom), le même jour — demande de
+        Chris : "Seenovate" ne se trouve pas dans un titre de fichier,
+        mais dans le texte de "Cours JFM". Les deux recherches (nom +
+        contenu) tournent en parallèle et sont fusionnées sans doublon ;
+        un délai de 8s laisse de côté la recherche de contenu si elle
+        traîne (cache froid, OCR à refaire — limite déjà documentée plus
+        haut) plutôt que de bloquer la recherche par nom, quasi
+        instantanée elle. Vérifié en direct : "Seenovate" trouve "Cours
+        JFM.docx" avec l'extrait exact et le bon numéro de ligne, le
+        lien profond ouvre directement au bon passage.
+
+## Architecture cible pour le mode "Texte" (discussion du 2026-08-30)
+
+**Le vrai problème, pas un bug de prompt** : le routeur LLM actuel
+(`llm_router.py`) fait un seul appel, une seule décision par message —
+soit UN outil (paramètres devinés en une fois depuis le texte), soit
+"chat libre". Le mode chat libre appelle le LLM sans accès à rien de
+local (`chat_free()`, aucun outil). Résultat observé dans les vrais
+logs de Chris : "AON" et "Seenovate" (deux vrais noms/mots présents
+dans ses documents) atterrissaient en chat libre, avec une réponse
+générique sur la société AON ou l'entreprise Seenovate, sans jamais
+avoir cherché localement. Ce n'est pas réparable par un réglage de
+prompt de plus : le système ne peut poser qu'un seul geste par
+question, alors que "creuser" (chercher, regarder le résultat, décider
+d'aller lire un fichier précis, répondre) demande plusieurs étapes.
+
+**Architecture cible : une vraie boucle agentique**, pas un routeur à
+décision unique. Le LLM doit pouvoir : (1) recevoir la question + le
+catalogue d'outils disponibles, (2) appeler un outil, (3) voir le
+résultat et décider s'il en sait assez ou doit creuser encore (ex.
+lire un fichier trouvé par la recherche), (4) répéter (avec une limite,
+~4-5 aller-retours max, pour borner coût/latence), (5) répondre en
+s'appuyant sur ce qu'il a vraiment trouvé. C'est le mécanisme "function
+calling" natif d'OpenAI (le projet utilise déjà `gpt-4.1-mini` via
+l'API OpenAI, qui le supporte). La brique d'exécution existe déjà et
+n'a pas besoin d'être réécrite : `executer_outil()`
+(`tool_executor.py`) est l'unique point de passage pour appeler un
+outil, aujourd'hui comme demain.
+
+**Pourquoi ça répond aussi au besoin "demain, Ménage"** : une fois la
+boucle en place, ajouter un nouveau domaine (Ménage : "ajoute X au
+to-do", "récurrence de Nettoyer le Balcon") ne demande aucun
+changement à la boucle elle-même — juste déclarer de nouveaux outils,
+le jour où Ménage expose une API (pas le cas aujourd'hui). C'est la
+différence entre une architecture et un patch : un patch résout un
+cas, une architecture absorbe le suivant sans qu'on y retouche.
+
+**Garde-fou confidentialité, posé par Chris et vérifié avant de foncer**
+: Chris veut pouvoir taguer certains documents "confidentiel" plus
+tard — titre visible, mais aucun accès LLM au contenu (pas de résumé,
+pas de question dessus). Vérifié que l'architecture cible le permet
+nativement : tout appel d'outil (aujourd'hui comme la future boucle
+agentique) passe par le même point unique (`executer_outil`) — un
+garde-fou posé dans les fonctions qui envoient du contenu à un LLM
+(`resumer_fichier_texte_local`, `question_fichier_texte_local`, et
+leurs équivalents dossier) s'appliquerait donc automatiquement à tous
+les appelants, y compris la boucle agentique, qui ne peut pas le
+contourner puisqu'elle appelle exactement les mêmes fonctions. Question
+ouverte à trancher le jour de l'implémentation : "confidentiel"
+bloque-t-il aussi la recherche par mot-clé dans le contenu (filtrage
+texte local, aucun LLM impliqué), ou seulement les opérations qui
+envoient réellement du contenu à un LLM ? Rien à faire maintenant,
+juste à garder en tête.
+
+**Découpage en 4 étapes** (accord de Chris le 2026-08-30, "toutes les
+étapes me conviennent") :
+- [x] Étape 1 — Recherche mot-clé étendue au contenu (voir 6.2bis
+      ci-dessus, faite immédiatement, indépendante du reste).
+- [ ] Étape 2 — Formaliser le catalogue d'outils (`REGISTRE_OUTILS`) en
+      schéma structuré (format JSON Schema attendu par l'API OpenAI),
+      au lieu de la simple liste de noms de paramètres actuelle.
+      Mécanique et à faible risque : habille les outils existants, n'en
+      change pas la logique.
+- [ ] Étape 3 — Construire la boucle agentique elle-même (nouveau
+      module, ex. `assistant/agent_loop.py`) : appel OpenAI avec
+      `tools=[...]`, exécution via `executer_outil()`, résultat renvoyé
+      au modèle, répété jusqu'à réponse finale ou limite atteinte.
+- [ ] Étape 4 — Brancher le mode "Texte" du Domaine dessus (garder le
+      routeur actuel pour Telegram/terminal dans un premier temps, pas
+      touché), tester sur les vrais cas ratés de Chris ("Seenovate",
+      "budget", "AON"), suite de tests complète avant tout déploiement.
+
 - [ ] 6.3 Revisiter seulement maintenant (pas avant) la question du
       routage à 2 étages (classer le domaine avant d'exposer ses outils au
       LLM) — à ne faire que si le nombre d'outils cause un vrai problème
