@@ -873,6 +873,39 @@ entre les pièces déjà branchées, pas seulement interroger les documents.
       côté LLM, même avec une session neuve — c'est exactement la
       limite déjà notée juste au-dessus (réglage de prompt), pas une
       régression liée aux deux bugs ci-dessus.
+- [x] 6.2bis (ajouté le 2026-08-30, proposition de Chris après avoir lu
+      les logs réels avec lui) : mode **Mot-clé / Texte** sur la barre
+      de recherche du Domaine, même principe que le toggle déjà validé
+      dans la salle Documents.
+  - **Preuve dans les logs qui a tranché le débat** : "AON" et
+    "Seenovate" (deux vrais noms de fichiers de Chris) atterrissaient en
+    mode conversation libre côté LLM — réponse générique sur la société
+    de courtage d'assurances AON, ou sur l'entreprise Seenovate — au
+    lieu de chercher dans les documents. Le LLM ne peut structurellement
+    pas deviner qu'un mot correspond à un fichier local sans que
+    l'utilisateur le précise : ce n'est pas un réglage de prompt de
+    plus à faire, c'est une ambiguïté qu'il vaut mieux lever côté UX.
+  - "🔍 Mot-clé" appelle désormais `/documents/search` directement, sans
+    passer par `/ask` ni le routeur LLM — une recherche par mot-clé
+    cherche toujours, elle ne devine jamais s'il faut chercher ou
+    discuter. "💬 Texte" garde le routeur LLM actuel (`/ask`) pour les
+    questions ouvertes, l'usage des tâches, le chat général.
+  - Corrigé au passage : ouvrir une **image** trouvée par la barre de
+    recherche affichait "Format non pris en charge : .png" avant qu'un
+    repli affiche quand même l'image (bug remonté par Chris, message
+    d'erreur qui clignotait). Le lien profond transmet maintenant
+    l'information "c'est une image" (déjà connue de la barre de
+    recherche via `meta.image`), qui l'ouvre directement dans la
+    visionneuse — même logique que `documents/page.tsx::openSelection`
+    pour un clic normal dans la salle Documents.
+  - Vérifié en direct : "AON" en mode Mot-clé renvoie les 2 PDF ; ouvrir
+    une image trouvée par mot-clé affiche la visionneuse sans message
+    d'erreur transitoire.
+  - Limite du mode Mot-clé pour l'instant : ne cherche que dans les
+    documents (par nom de fichier), pas dans les tâches ni le contenu
+    des documents — pas d'outil de recherche par mot-clé équivalent pour
+    les tâches aujourd'hui. Extensible plus tard si le besoin se
+    confirme, pas fait par anticipation.
 - [ ] 6.3 Revisiter seulement maintenant (pas avant) la question du
       routage à 2 étages (classer le domaine avant d'exposer ses outils au
       LLM) — à ne faire que si le nombre d'outils cause un vrai problème
