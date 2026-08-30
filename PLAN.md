@@ -802,9 +802,49 @@ entre les pièces déjà branchées, pas seulement interroger les documents.
         anissa" et d'autres phrasés naturels : certains devraient
         maintenant produire un bouton, d'autres échouent encore plus tôt
         (détection d'intention, hors scope de cette tranche).
-- [ ] 6.2 Reprendre et étendre le pattern déjà en place (`registry.py`) :
-      LLM pour comprendre/choisir l'outil, Python pour l'exécuter, LLM
-      pour reformuler le résultat.
+- [x] 6.2 (ajouté le 2026-08-29, suite à la question de Chris "es-tu sûr
+      de pouvoir faire une barre de recherche efficace ?") Débloquer le
+      routeur LLM déjà en place (`registry.py`/`llm_router.py`) : LLM pour
+      comprendre/choisir l'outil, Python pour l'exécuter.
+      **Découverte clé** : ce routeur existait déjà, complet et
+      fonctionnel (il envoie la phrase + la liste des outils disponibles
+      au LLM, qui renvoie directement `{tool_name, paramètres}` proprement
+      structuré) — mais il n'était quasiment jamais atteint. Un verrou
+      dans `orchestrator.py` bloquait avec une erreur générique tout
+      message "à consonance documentaire" pour lequel la couche de règles
+      heuristiques (des dizaines de chemins internes, `document_flow.py`)
+      échouait à résoudre quoi que ce soit — sans jamais donner sa chance
+      au routeur LLM. Autrement dit : le système "intelligent" existait
+      déjà, il était juste coupé du reste par une couche de règles trop
+      sûre d'elle-même. Ce n'était donc pas un chantier de plusieurs
+      semaines mais un déblocage ciblé de 3 points précis :
+  - [x] `document_flow.py` : la résolution implicite sur un mot seul cède
+        maintenant la main (au lieu de renvoyer un échec déguisé en
+        "traité") quand aucune piste, même approximative, n'existe pour
+        un dossier. Le cas ambigu ("plusieurs dossiers ressemblent à...")
+        garde le comportement existant — bonne UX, pas un bug.
+  - [x] `orchestrator.py` : suppression du verrou redondant qui empêchait
+        le routeur LLM d'être consulté.
+  - [x] `llm_router.py` : le prompt demandait trop souvent une précision
+        en mode conversationnel au lieu de lancer une recherche — ajout
+        d'une règle explicite pour privilégier la recherche dès qu'un
+        mot-clé exploitable existe.
+  - Vérifié sur une instance isolée (port 8010, sans toucher au serveur
+    de Chris) : "cherche anissa" et "où est le fichier budget" — les
+    deux exemples exacts que Chris avait signalés — produisent
+    maintenant une vraie liste cliquable, alors qu'ils étaient bloqués
+    net avant. 417 tests verts (2 nouveaux).
+  - **Limite honnête, non traitée ici** : sur une phrase vague sans
+    mot-clé clair ("as-tu des infos sur X"), le routeur LLM peut encore
+    halluciner un nom de fichier au lieu de chercher ou de répondre en
+    conversation. C'est un réglage de prompt/heuristique différent du
+    problème de plomberie réglé ici, à reprendre séparément si Chris
+    rencontre ce cas en usage réel — pas promis comme réglé à 100 %.
+  - **Reste à faire par Chris : relancer l'API** (Claude l'a fait une
+    fois lui-même à sa demande le 2026-08-29 pour ce lot ; pour la
+    suite, redemander à Claude de la relancer après chaque changement de
+    code plutôt que de la lancer soi-même, pour éviter que les deux
+    tournent en parallèle sur le même port).
 - [ ] 6.3 Revisiter seulement maintenant (pas avant) la question du
       routage à 2 étages (classer le domaine avant d'exposer ses outils au
       LLM) — à ne faire que si le nombre d'outils cause un vrai problème
