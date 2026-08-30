@@ -23,7 +23,8 @@ export type Block =
       feuilles?: ListItem[];
     }
   | { kind: "list"; items: ListItem[] }
-  | { kind: "error"; message: string };
+  | { kind: "error"; message: string }
+  | { kind: "sources"; items: ListItem[] };
 
 export type ApiResponse = { status: "ok" | "error"; blocks: Block[] };
 

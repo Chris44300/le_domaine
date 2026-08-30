@@ -19,6 +19,10 @@ function toutesLesOccurrences(item: ListItem): { texte: string; ligne: number | 
   return Array.isArray(extraits) ? (extraits as { texte: string; ligne: number | null }[]) : [];
 }
 
+type TourTexte =
+  | { role: "user"; content: string }
+  | { role: "assistant"; content: string; sources?: ListItem[]; items?: ListItem[] };
+
 export default function SearchBar() {
   const router = useRouter();
   const [mode, setMode] = useState<"motcle" | "texte">("motcle");
@@ -40,8 +44,15 @@ export default function SearchBar() {
   // anissa). Entièrement côté client : jamais stocké côté serveur (voir
   // /agent/ask), conservé tant que l'utilisateur ne clique pas sur
   // "Réinitialiser" - un rechargement de page l'efface aussi, ce qui
-  // est le comportement attendu d'un état non persisté.
-  const [historiqueTexte, setHistoriqueTexte] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
+  // est le comportement attendu d'un état non persisté. sources/items
+  // restent attachés à LEUR tour (pas un bloc flottant partagé) - sinon
+  // l'accès aux documents "disparaissait" visuellement au tour suivant
+  // (retour de Chris).
+  const [historiqueTexte, setHistoriqueTexte] = useState<TourTexte[]>([]);
+  // Replié par défaut dès qu'il y a de quoi lire - une conversation qui
+  // grandit masquait les icônes du Domaine en dessous (retour de
+  // Chris : "je perds la vision sur le domaine").
+  const [chatReduit, setChatReduit] = useState(false);
   // Une recherche lancee pendant qu'une precedente est encore en vol ne
   // doit jamais se faire ecraser par la reponse tardive de celle-ci -
   // bug trouve par Chris ("je tape budget je retombe sur le texte
@@ -85,14 +96,7 @@ export default function SearchBar() {
     // Même principe que le choix "🔍 Mot-clé" / "💬 Question" déjà validé
     // dans la salle Documents (documents/page.tsx).
     if (mode === "motcle") {
-      // Cherche d'abord par NOM seulement, jamais par le routeur LLM -
-      // une recherche par mot-clé doit toujours chercher, jamais deviner
-      // s'il faut chercher ou discuter. Corrige le "gros bug" remonté par
-      // Chris via les logs : "AON" ou "Seenovate" (des noms de fichiers
-      // réels) atterrissaient en mode conversation libre côté LLM ("AON est
-      // une société de courtage d'assurances...") au lieu de chercher dans
-      // les documents.
-      //
+      // Cherche d'abord par NOM seulement, jamais par le routeur LLM.
       // La recherche dans le CONTENU est un second temps, sur demande
       // explicite (bouton "Chercher aussi dans le contenu" plus bas) -
       // pas automatique : un mot courant comme "budget" ressort dans
@@ -121,9 +125,9 @@ export default function SearchBar() {
     // client, et renvoyée explicitement à chaque appel. Chaque
     // utilisateur garde donc sa propre conversation, sans risque de
     // pollution entre deux visiteurs comme celle trouvée sur /ask.
-    const historiqueEnvoye = historiqueTexte;
+    const historiqueEnvoye = historiqueTexte.map(({ role, content }) => ({ role, content }));
     setHistoriqueTexte((h) => [...h, { role: "user", content: texte }]);
-    setBlock(null);
+    setChatReduit(false);
 
     const reponse = await callApi("/agent/ask", { message: texte, historique: historiqueEnvoye });
     if (requestTokenRef.current !== token) return;
@@ -134,13 +138,22 @@ export default function SearchBar() {
       setHistoriqueTexte((h) => [...h, { role: "assistant", content: erreur }]);
     } else {
       const texteReponse = reponse.blocks[0]?.kind === "text" ? reponse.blocks[0].body : "Pas de réponse.";
-      setHistoriqueTexte((h) => [...h, { role: "assistant", content: texteReponse }]);
-      // Bloc navigable optionnel (voir api/agent.py) : liste cliquable
-      // en plus du texte quand la boucle a trouvé un fichier/dossier
-      // précis - demande de Chris ("la recherche par Texte ne sait pas
-      // [donner l'accès à un document]").
-      const blocListe = reponse.blocks[1];
-      setBlock(blocListe?.kind === "list" ? blocListe : null);
+      // "sources" (fichiers lus pour répondre) et "list" (accès complet à
+      // un dossier/une recherche) sont deux blocs distincts renvoyés par
+      // /agent/ask (voir api/agent.py) - rattachés à CE tour précis de la
+      // conversation, pas à un état flottant partagé qui "disparaissait"
+      // au tour suivant (retour de Chris).
+      const blocSources = reponse.blocks.find((b) => b.kind === "sources");
+      const blocListe = reponse.blocks.find((b) => b.kind === "list");
+      setHistoriqueTexte((h) => [
+        ...h,
+        {
+          role: "assistant",
+          content: texteReponse,
+          sources: blocSources?.kind === "sources" ? blocSources.items : undefined,
+          items: blocListe?.kind === "list" ? blocListe.items : undefined,
+        },
+      ]);
     }
     setIsLoading(false);
   }
@@ -218,32 +231,124 @@ export default function SearchBar() {
     router.push(`/documents?${params.toString()}`);
   }
 
+  function CarteItem({ item, index }: { item: ListItem; index: number }) {
+    if (isTaskItem(item)) {
+      return (
+        <li key={item.id}>
+          <button
+            onClick={() => handleToggleTask(item.id)}
+            className="flex w-full items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-left"
+          >
+            <span
+              className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-xs ${
+                item.done ? "border-accent bg-accent text-white" : "border-border text-transparent"
+              }`}
+            >
+              ✓
+            </span>
+            <span className={`flex-1 text-sm ${item.done ? "text-foreground/40 line-through" : "text-foreground"}`}>
+              {item.label}
+            </span>
+          </button>
+        </li>
+      );
+    }
+
+    // Toutes les occurrences d'un même fichier restent groupées sous UNE
+    // carte (pas une carte par occurrence, qui répétait le nom du
+    // fichier autant de fois - retour de Chris sur "BFR" trouvé deux
+    // fois dans "Cours JFM"). "index" dans la clef : deux items
+    // différents peuvent partager le même id (dossiers différents, même
+    // nom de fichier).
+    return (
+      <li key={`${item.id}-${index}`} className="flex flex-col gap-1 rounded-xl border border-border bg-surface px-4 py-3">
+        <button onClick={() => ouvrirDansDocuments(item)} className="flex w-full items-center gap-3 text-left">
+          <span className="shrink-0">{item.meta?.type === "dossier" ? "📁" : "📄"}</span>
+          <span className="flex-1 truncate text-sm text-foreground">{item.label}</span>
+          <span className="shrink-0 text-xs text-accent">Voir dans Documents ›</span>
+        </button>
+        {toutesLesOccurrences(item).length > 1 ? (
+          <div className="flex flex-col gap-0.5 pl-8">
+            {toutesLesOccurrences(item).map((occurrence, i) => (
+              <button
+                key={i}
+                onClick={() => ouvrirDansDocuments(item, occurrence.ligne)}
+                className="truncate text-left text-xs text-foreground/50 hover:text-accent"
+              >
+                {occurrence.ligne ? `L${occurrence.ligne} : ` : ""}
+                {occurrence.texte}
+              </button>
+            ))}
+          </div>
+        ) : (
+          premierExtrait(item) && (
+            <button
+              onClick={() => ouvrirDansDocuments(item, premierExtrait(item)?.ligne)}
+              className="truncate pl-8 text-left text-xs text-foreground/50 hover:text-accent"
+            >
+              {premierExtrait(item)?.ligne ? `L${premierExtrait(item)?.ligne} : ` : ""}
+              {premierExtrait(item)?.texte}
+            </button>
+          )
+        )}
+      </li>
+    );
+  }
+
   return (
     <div className="fixed inset-x-0 bottom-0 border-t border-border bg-background/95 backdrop-blur px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4">
       <div className="mx-auto flex w-full max-w-xl flex-col gap-3">
         {mode === "texte" && historiqueTexte.length > 0 && (
           <div className="flex flex-col gap-2">
-            <div className="flex max-h-64 flex-col gap-2 overflow-y-auto rounded-lg border border-border bg-surface/50 p-3">
-              {historiqueTexte.map((tour, index) => (
-                <div
-                  key={index}
-                  className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
-                    tour.role === "user"
-                      ? "self-end bg-accent text-white"
-                      : "self-start whitespace-pre-wrap border border-border bg-surface text-foreground"
-                  }`}
-                >
-                  {tour.content}
-                </div>
-              ))}
+            <div className="flex items-center justify-between text-xs">
+              <button
+                type="button"
+                onClick={() => setChatReduit((r) => !r)}
+                className="flex items-center gap-1 text-foreground/60 hover:text-accent"
+              >
+                {chatReduit ? "▲ Afficher la conversation" : "▼ Réduire la conversation"}
+              </button>
+              <button type="button" onClick={reinitialiserConversationTexte} className="text-foreground/50 hover:text-accent hover:underline">
+                🔄 Réinitialiser
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={reinitialiserConversationTexte}
-              className="self-start text-xs text-foreground/50 hover:text-accent hover:underline"
-            >
-              🔄 Réinitialiser la conversation
-            </button>
+            {!chatReduit && (
+              <div className="flex max-h-80 flex-col gap-3 overflow-y-auto rounded-lg border border-border bg-surface/50 p-3">
+                {historiqueTexte.map((tour, index) =>
+                  tour.role === "user" ? (
+                    <div key={index} className="max-w-[85%] self-end rounded-lg bg-accent px-3 py-2 text-sm text-white">
+                      {tour.content}
+                    </div>
+                  ) : (
+                    <div key={index} className="flex max-w-[90%] flex-col gap-1.5 self-start">
+                      <div className="whitespace-pre-wrap rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground">
+                        {tour.content}
+                      </div>
+                      {tour.sources && tour.sources.length > 0 && (
+                        <p className="pl-1 text-xs italic text-foreground/50">
+                          Sources :{" "}
+                          {tour.sources.map((source, i) => (
+                            <span key={source.id}>
+                              {i > 0 && ", "}
+                              <button onClick={() => ouvrirDansDocuments(source)} className="underline hover:text-accent">
+                                {source.label}
+                              </button>
+                            </span>
+                          ))}
+                        </p>
+                      )}
+                      {tour.items && tour.items.length > 0 && (
+                        <ul className="flex flex-col gap-2">
+                          {tour.items.map((item, i) => (
+                            <CarteItem key={`${item.id}-${i}`} item={item} index={i} />
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  ),
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -261,73 +366,10 @@ export default function SearchBar() {
 
         {block && block.kind === "list" && (
           <ul className="flex max-h-64 flex-col gap-2 overflow-y-auto">
-            {block.items.map((item, index) =>
-              isTaskItem(item) ? (
-                <li key={item.id}>
-                  <button
-                    onClick={() => handleToggleTask(item.id)}
-                    className="flex w-full items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-left"
-                  >
-                    <span
-                      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-xs ${
-                        item.done
-                          ? "border-accent bg-accent text-white"
-                          : "border-border text-transparent"
-                      }`}
-                    >
-                      ✓
-                    </span>
-                    <span
-                      className={`flex-1 text-sm ${item.done ? "text-foreground/40 line-through" : "text-foreground"}`}
-                    >
-                      {item.label}
-                    </span>
-                  </button>
-                </li>
-              ) : (
-                // Toutes les occurrences d'un même fichier restent
-                // groupées sous UNE carte (pas une carte par occurrence,
-                // qui répétait le nom du fichier autant de fois - retour
-                // de Chris sur "BFR" trouvé deux fois dans "Cours JFM").
-                // "index" dans la clef : deux items différents peuvent
-                // partager le même id (dossiers différents, même nom de
-                // fichier).
-                <li key={`${item.id}-${index}`} className="flex flex-col gap-1 rounded-xl border border-border bg-surface px-4 py-3">
-                  <button onClick={() => ouvrirDansDocuments(item)} className="flex w-full items-center gap-3 text-left">
-                    <span className="shrink-0">{item.meta?.type === "dossier" ? "📁" : "📄"}</span>
-                    <span className="flex-1 truncate text-sm text-foreground">{item.label}</span>
-                    <span className="shrink-0 text-xs text-accent">Voir dans Documents ›</span>
-                  </button>
-                  {toutesLesOccurrences(item).length > 1 ? (
-                    <div className="flex flex-col gap-0.5 pl-8">
-                      {toutesLesOccurrences(item).map((occurrence, i) => (
-                        <button
-                          key={i}
-                          onClick={() => ouvrirDansDocuments(item, occurrence.ligne)}
-                          className="truncate text-left text-xs text-foreground/50 hover:text-accent"
-                        >
-                          {occurrence.ligne ? `L${occurrence.ligne} : ` : ""}
-                          {occurrence.texte}
-                        </button>
-                      ))}
-                    </div>
-                  ) : (
-                    premierExtrait(item) && (
-                      <button
-                        onClick={() => ouvrirDansDocuments(item, premierExtrait(item)?.ligne)}
-                        className="truncate pl-8 text-left text-xs text-foreground/50 hover:text-accent"
-                      >
-                        {premierExtrait(item)?.ligne ? `L${premierExtrait(item)?.ligne} : ` : ""}
-                        {premierExtrait(item)?.texte}
-                      </button>
-                    )
-                  )}
-                </li>
-              ),
-            )}
-            {block.items.length === 0 && (
-              <p className="text-sm text-foreground/60">Aucun résultat.</p>
-            )}
+            {block.items.map((item, index) => (
+              <CarteItem key={`${item.id}-${index}`} item={item} index={index} />
+            ))}
+            {block.items.length === 0 && <p className="text-sm text-foreground/60">Aucun résultat.</p>}
           </ul>
         )}
 
