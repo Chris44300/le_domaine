@@ -11,13 +11,26 @@ cette liste si l'ordre change plutôt que de la laisser devenir fausse.
 
 1. **Documentation** ("pour moi dans 2 ans qui a tout oublié") — en
    cours, voir les README de chaque dépôt.
-2. **Ménage réellement intégré** — aujourd'hui juste un lien externe,
-   aucune donnée accessible au chat/aux outils. Question ouverte de
-   Chris (réponse donnée le 2026-08-30, à formaliser en plan le moment
-   venu) : la donnée reste dans Supabase, une intégration API et/ou
-   visuelle ne la déplace pas — pas de risque de perte si c'est fait
-   proprement (ne jamais migrer/dupliquer la base, seulement ajouter
-   des accès dessus).
+2. **Ménage réellement intégré** — EN COURS depuis le 2026-08-30.
+   - [x] **Étape 1 (lecture seule)** : `connectors/menage.py` (dépôt
+     Nigel) lit directement dans la base Supabase de Ménage (clé
+     secrète, filtrée sur le foyer en application — même principe que
+     `web/src/lib/supabase/admin.ts`, le seul autre endroit du projet
+     Ménage à contourner RLS). Trois outils exposés au chat : tâches du
+     jour/en retard, recherche d'une tâche par nom (correspondance
+     floue), to-do en attente. Zéro risque pour les données : aucun
+     code de Ménage modifié, aucune donnée déplacée/dupliquée.
+     Vérifié en conditions réelles : "quelle est la récurrence pour
+     nettoyer le balcon ?" répond correctement avec les vraies données.
+   - [ ] **Étape 2 (écriture)** : ajouter une tâche/to-do, cocher fait,
+     reporter — pas commencé, volontairement séparé (modifie de vraies
+     données).
+   - [ ] **Étape 3 (intégration visuelle)** : faire vivre les écrans de
+     Ménage dans l'habillage du Domaine, pour naviguer entre "Domaine"
+     et "Ménage" sans changer d'application — comme c'est déjà le cas
+     entre Domaine et Documents. Demande de Chris le 2026-08-30. Pas
+     commencé — voir la note ci-dessous, ça touche à l'authentification
+     et recoupe la discussion sur le réseau multi-utilisateurs (item 4).
 3. **Pièce Reporting** (Phase 7) — un peu après Ménage.
 4. **Réseau multi-utilisateurs + permissions + "Programmation"** (chat
    admin capable de modifier le code, avec snapshots/retour en
@@ -31,6 +44,43 @@ cette liste si l'ordre change plutôt que de la laisser devenir fausse.
 7. **Alerte si le serveur tombe complètement** (aujourd'hui : alerte
    sur l'échec du balayage planifié seulement, pas sur une panne
    générale de l'API).
+
+### Note : intégration visuelle de Ménage (Étape 3 ci-dessus)
+
+Question de Chris le 2026-08-30 : "je veux que l'application ménage
+soit dans domaine... comme on peut avoir entre domaine et Document".
+Réponse — oui, possible, mais Ménage est structurellement différent de
+Documents : Documents est une simple route qui appelle la même API
+Nigel que le reste du Domaine, alors que Ménage est une **application
+Next.js séparée avec son propre système de connexion** (email + lien
+magique Supabase Auth, par personne — Chris ET Mel ont chacun leur
+compte). Trois façons possibles d'obtenir l'effet recherché, par ordre
+de préférence :
+
+- **Fusionner le code** (recommandée) : faire vivre les écrans de
+  Ménage comme une route à l'intérieur de ce dépôt, connectée à la même
+  base Supabase. C'est la seule option qui donne vraiment "une seule
+  appli, une seule connexion" — pas de double authentification, pas de
+  sensation de changer d'appli. Implique de porter la connexion par
+  personne (Supabase Auth) dans Le Domaine, qui n'a aujourd'hui qu'un
+  jeton unique partagé — **ce qui recoupe directement l'item 4
+  (réseau multi-utilisateurs)** : Ménage a déjà un vrai modèle
+  foyer/membres/permissions par personne, exactement ce dont ce chantier
+  a besoin. Plutôt que de construire un système d'utilisateurs from
+  scratch pour le Domaine, étendre celui de Ménage (déjà existant,
+  déjà éprouvé à deux) est probablement le chemin le plus efficace.
+- **Iframe** (rapide mais déconseillée) : afficher le site Ménage
+  existant dans un cadre à l'intérieur du Domaine. Techniquement
+  simple, mais ne résout ni la double connexion ni la sensation de
+  changer d'appli — un pis-aller, pas la cible.
+- **Proxy/rewrite** : faire passer les requêtes vers `/menage` par le
+  déploiement Ménage existant sans fusionner le code. Complexité propre
+  (cookies, session, deux déploiements à garder synchronisés) sans
+  vraiment simplifier par rapport à la fusion.
+
+Pas commencé — mérite sa propre session de conception (comme
+l'architecture du chat en a eu une), pas un chantier à ouvrir en
+parallèle de l'étape 2 (écriture) sans en avoir discuté d'abord.
 
 Hors liste ci-dessus mais notée : Telegram/API (Phase 3) est devenue
 **obsolète**, pas juste reportée — voir la note dans la Phase 3
