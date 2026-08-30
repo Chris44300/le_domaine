@@ -975,19 +975,50 @@ juste à garder en tête.
 étapes me conviennent") :
 - [x] Étape 1 — Recherche mot-clé étendue au contenu (voir 6.2bis
       ci-dessus, faite immédiatement, indépendante du reste).
-- [ ] Étape 2 — Formaliser le catalogue d'outils (`REGISTRE_OUTILS`) en
-      schéma structuré (format JSON Schema attendu par l'API OpenAI),
-      au lieu de la simple liste de noms de paramètres actuelle.
-      Mécanique et à faible risque : habille les outils existants, n'en
-      change pas la logique.
-- [ ] Étape 3 — Construire la boucle agentique elle-même (nouveau
-      module, ex. `assistant/agent_loop.py`) : appel OpenAI avec
-      `tools=[...]`, exécution via `executer_outil()`, résultat renvoyé
-      au modèle, répété jusqu'à réponse finale ou limite atteinte.
-- [ ] Étape 4 — Brancher le mode "Texte" du Domaine dessus (garder le
-      routeur actuel pour Telegram/terminal dans un premier temps, pas
-      touché), tester sur les vrais cas ratés de Chris ("Seenovate",
-      "budget", "AON"), suite de tests complète avant tout déploiement.
+- [x] Étape 2 — Catalogue d'outils formalisé en schéma structuré (format
+      JSON Schema attendu par l'API OpenAI) dans un nouveau module
+      (`assistant/agent_tools.py`), à côté de `REGISTRE_OUTILS`
+      (`registry.py`) — pas modifié, ni `llm_router.py` : le routeur à
+      décision unique continue de fonctionner tel quel pour
+      Telegram/terminal. 429 tests verts (6 nouveaux).
+- [x] Étape 3 — Boucle agentique (`assistant/agent_loop.py`,
+      `executer_agent()`) : appel OpenAI avec `tools=[...]`, exécution
+      via `executer_outil()` (déjà l'unique point de passage), résultat
+      renvoyé au modèle, répété jusqu'à réponse finale ou 5
+      allers-retours max. 431 tests verts (6 nouveaux).
+- [x] Étape 4 — Nouvel endpoint `POST /agent/ask` (séparé de `/ask`,
+      routeur historique inchangé pour Telegram/terminal), branché sur
+      le mode "Texte" de `SearchBar.tsx`.
+  - **Vrai bug trouvé en testant "qui est Seenovate ?" en conditions
+    réelles** (pas seulement en tests unitaires simulés) : le modèle
+    cherchait bien, trouvait bien "Cours JFM.docx", mais s'obstinait sur
+    `lire_fichier_texte_local` (qui ne renvoie que le DÉBUT du fichier)
+    au lieu de `question_fichier_texte_local` (qui cible le bon passage
+    via `construire_contexte_cible`) — la mention "Seenovate" étant plus
+    loin dans le document, 4 tentatives identiques n'aboutissaient
+    jamais (boucle jusqu'à la limite des 5 allers-retours). Corrigé en
+    précisant dans le prompt de la boucle quel outil utiliser pour
+    quel usage, et en interdisant explicitement de répéter le même
+    appel avec les mêmes paramètres.
+  - Vérifié en conditions réelles (vrai déploiement, vrai appel OpenAI,
+    pas simulé) sur les deux cas exacts signalés par Chris :
+    - "qui est Seenovate ?" → cherche par nom (rien) → cherche dans le
+      contenu (trouve Cours JFM.docx) → pose une question ciblée dessus
+      → répond correctement en 3 appels d'outils.
+    - "budget" seul → cherche et liste les 3 fichiers réels
+      (`budget_2026.xlsx`, `budget_multi_feuilles_test.xlsx`,
+      `FV_-_Tenir_un_Budget.png`), au lieu de l'ancienne réponse
+      inventée ("personnel, entreprise...") sans avoir jamais cherché.
+  - 431 tests verts côté API, aucune régression sur le routeur existant
+    (Telegram/terminal, mode "Mot-clé") ni sur `/ask`.
+
+**Bilan de ce chantier** : parti d'une question de Chris ("es-tu sûr de
+pouvoir faire une barre de recherche efficace ?") après plusieurs
+rounds de patchs ponctuels, la vraie cause a fini par être identifiée
+(un routeur à décision unique, incapable de creuser) et corrigée par
+une architecture qui absorbe le cas suivant sans qu'on y retouche —
+exactement la différence que Chris demandait entre patch et
+architecture.
 
 - [ ] 6.3 Revisiter seulement maintenant (pas avant) la question du
       routage à 2 étages (classer le domaine avant d'exposer ses outils au
