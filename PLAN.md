@@ -1113,6 +1113,48 @@ architecture.
       pas seulement l'accueil — changement de portée (layout partagé)
       plutôt qu'un ajout au composant de recherche, à traiter comme une
       étape à part plutôt qu'un patch de plus.
+- [x] 6.2septies (ajouté le 2026-08-30, même journée) : les deux points
+      reportés en 6.2sexies, faits + le balayage planifié.
+  - **Chat persistant sur toutes les pages** — "un ambassadeur qui ne
+    me quitte jamais quand je me balade" (Chris). `SearchBar` déplacé
+    de la page d'accueil vers le layout racine (`app/layout.tsx`),
+    masqué uniquement sur `/login`. Vérifié en direct : la conversation
+    reste disponible et continue depuis la salle Documents, sans
+    perdre le fil en changeant de page.
+  - **Documents associés affichés sur demande**, plus par défaut à
+    chaque tour (bouton "📄 Voir les documents associés (N)") — retour
+    de Chris : "ça prend de la place pour rien".
+  - **Navigation précédent/suivant entre occurrences** dans la vue de
+    lecture d'un document, même principe que Telegram
+    (`assistant/document_browser.py::_occurrence_actions`). Le mot-clé
+    cherché est transmis via l'URL (nouveau paramètre `q`, mode
+    Mot-clé uniquement) ; à l'arrivée, une recherche dans ce fichier
+    (`/documents/search-in-file`, déjà existant) construit la liste
+    d'occurrences. Vérifié en direct sur "Seenovate" → Cours JFM.docx :
+    bascule "Occurrence 1/2" → "2/2" avec le bon contenu à chaque fois.
+  - **Balayage planifié** (`scripts/warmup_cache.py`) — parcourt tous
+    les fichiers compatibles et déclenche leur extraction via
+    `lire_contenu_fichier_autorise()` (déjà l'unique point de passage,
+    cache inclus) ; un fichier déjà en cache est ignoré quasi
+    instantanément, seuls les fichiers jamais ouverts coûtent
+    réellement du temps (OCR). Log dédié (`logs/warmup_cache.log`),
+    code de sortie non nul en cas d'erreur. Enregistré comme tâche
+    planifiée Windows ("Nigel - Balayage cache documents", quotidienne
+    23h30, rattrapage automatique si le PC est éteint à l'heure
+    prévue) — vérifié par un déclenchement manuel réel via le
+    Planificateur de tâches (`LastTaskResult = 0`), pas seulement en
+    ligne de commande.
+    - **Reporté, pas oublié** : une alerte Telegram en plus du log en
+      cas d'échec — l'infrastructure d'envoi existe déjà
+      (`run_telegram.py`) mais pas de `chat_id` stocké de façon
+      persistante pour un envoi hors ligne (push) depuis un script
+      autonome. À faire si le besoin se confirme.
+  - **Vision long terme notée par Chris, hors scope pour l'instant** :
+    connecter une capacité de type "Claude Code" dans le chat, avec
+    accès aux fichiers du futur mini PC, pour des demandes comme
+    "ajoute une icône" ou "inverse les boutons X et Y" directement
+    depuis la conversation. Gardé en tête comme direction future, pas
+    un chantier engagé.
 - [ ] 6.3 Revisiter seulement maintenant (pas avant) la question du
       routage à 2 étages (classer le domaine avant d'exposer ses outils au
       LLM) — à ne faire que si le nombre d'outils cause un vrai problème
