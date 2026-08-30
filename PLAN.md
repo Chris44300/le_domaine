@@ -1020,6 +1020,44 @@ une architecture qui absorbe le cas suivant sans qu'on y retouche —
 exactement la différence que Chris demandait entre patch et
 architecture.
 
+- [x] 6.2quater (ajouté le 2026-08-30, round de test suivant sur la
+      nouvelle architecture) : quatre retours de Chris, tous corrigés le
+      même jour.
+  - **Mot-clé en deux temps** : la fusion automatique titre+contenu
+    (6.2bis) noyait un mot courant comme "budget" sous des dizaines
+    d'occurrences de contenu. Revenu à un vrai deux-temps (titres
+    d'abord, contenu seulement via un bouton "Chercher aussi dans le
+    contenu des documents") — même logique que la salle Documents,
+    dont Chris pensait (à raison) qu'elle fonctionnait déjà ainsi côté
+    Domaine.
+  - **Occurrences multiples perdues** : un fichier avec plusieurs
+    mentions du mot cherché n'affichait/ne rendait cliquable que la
+    première (déjà présentes côté API dans `meta.extraits`, jamais
+    exploitées côté front). Chaque occurrence est maintenant sa propre
+    ligne cliquable.
+  - **"Retour" ne remontait qu'une fois** dans la salle Documents,
+    puis disparaissait. Cause réelle plus profonde que prévu : un
+    chemin venant d'un lien profond utilise `\` (convention Windows du
+    backend) alors que la navigation interne utilise `/` — `currentPath`
+    mélangeait les deux, et le découpage par `/` sautait un niveau
+    entier. Normalisé vers `/` dès l'entrée dans `currentPath`.
+  - **Citation de source manquante** en mode Texte : une réponse
+    correcte mais qui ne disait pas d'où elle venait, ni qu'elle était
+    limitée au contenu d'un seul document. Le prompt de la boucle
+    agentique exige désormais de citer le fichier et de signaler une
+    information partielle. Vérifié : "qui est Seenovate ?" répond
+    maintenant "D'après le fichier Cours JFM.docx, ...".
+  - Vérifié en direct sur les quatre : "budget" → 3 titres puis, sur
+    demande, 23 occurrences de contenu individuellement cliquables ; 3
+    clics sur "Retour" remontent fichier → sous-dossier → dossier
+    parent → accueil ; citation de source visible en mode Texte.
+  - **Question posée par Chris, pas encore traitée** : un balayage
+    planifié (nuit/semaine) de tous les documents pour maintenir le
+    cache d'extraction "chaud" en permanence, pertinent surtout une
+    fois le futur NAS + mini PC 24/7 en place. Confirmé faisable
+    (tâche planifiée cron/Planificateur de tâches qui déclenche
+    l'extraction de chaque fichier) mais pas fait — Chris doit
+    confirmer s'il veut que ce soit la prochaine étape.
 - [ ] 6.3 Revisiter seulement maintenant (pas avant) la question du
       routage à 2 étages (classer le domaine avant d'exposer ses outils au
       LLM) — à ne faire que si le nombre d'outils cause un vrai problème
