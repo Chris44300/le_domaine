@@ -44,23 +44,63 @@ export default function SearchBar() {
     setIsError(false);
     setMessage("");
 
-    // Mode "Mot-clé" : appelle directement /documents/search, sans passer
-    // par le routeur LLM - une recherche par mot-clé doit toujours
-    // chercher, jamais deviner s'il faut chercher ou discuter. Corrige le
-    // "gros bug" remonté par Chris via les logs : "AON" ou "Seenovate"
-    // (des noms de fichiers réels) atterrissaient en mode conversation
-    // libre côté LLM ("AON est une société de courtage d'assurances...")
-    // au lieu de chercher dans les documents - le LLM ne pouvait pas
-    // deviner qu'un mot correspondait à un fichier local sans que
-    // l'utilisateur le lui dise explicitement. Même principe que le
-    // choix "🔍 Mot-clé" / "💬 Question" déjà validé dans la salle
-    // Documents (documents/page.tsx).
+    // Mode "Mot-clé" : appelle directement /documents/search (+ recherche
+    // dans le contenu, voir plus bas), sans passer par le routeur LLM -
+    // une recherche par mot-clé doit toujours chercher, jamais deviner
+    // s'il faut chercher ou discuter. Corrige le "gros bug" remonté par
+    // Chris via les logs : "AON" ou "Seenovate" (des noms de fichiers
+    // réels) atterrissaient en mode conversation libre côté LLM ("AON est
+    // une société de courtage d'assurances...") au lieu de chercher dans
+    // les documents - le LLM ne pouvait pas deviner qu'un mot correspondait
+    // à un fichier local sans que l'utilisateur le lui dise explicitement.
+    // Même principe que le choix "🔍 Mot-clé" / "💬 Question" déjà validé
+    // dans la salle Documents (documents/page.tsx).
     if (mode === "motcle") {
-      const reponse = await callApi("/documents/search", { mot_cle: texte, dossier: null });
+      // Cherche par nom ET dans le contenu, comme la salle Documents sait
+      // déjà le faire séparément - demande de Chris ("Seenovate" ne se
+      // trouve pas dans un titre de fichier, mais dans le texte de "Cours
+      // JFM"). Les deux recherches sont indépendantes (dossiers différents
+      // en interne), donc lancées en parallèle puis fusionnées : les
+      // correspondances de nom d'abord (plus précises), puis celles de
+      // contenu, sans doublon si un même fichier matche les deux.
+      //
+      // La recherche dans le contenu doit parfois lire/OCRiser des
+      // fichiers jamais encore ouverts (pas dans le cache) - déjà repéré
+      // comme lent dans certains dossiers (voir PLAN.md, "leçon
+      // opérationnelle"). Sur toute l'arborescence, une lenteur ne doit
+      // pas bloquer la recherche par nom, quasi instantanée elle - passé
+      // ce délai, on affiche ce qu'on a (nom seul) plutôt que de laisser
+      // l'utilisateur face à un spinner indéfini.
+      const DELAI_MAX_RECHERCHE_CONTENU_MS = 8000;
+      const [reponseNom, reponseContenu] = await Promise.all([
+        callApi("/documents/search", { mot_cle: texte, dossier: null }),
+        Promise.race([
+          callApi("/documents/search-content", { mot_cle: texte, dossier: null }),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), DELAI_MAX_RECHERCHE_CONTENU_MS)),
+        ]),
+      ]);
       if (requestTokenRef.current !== token) return;
-      const erreur = firstErrorMessage(reponse);
-      setIsError(erreur !== null);
-      setBlock(erreur ? { kind: "text", body: erreur } : reponse.blocks[0] ?? { kind: "list", items: [] });
+
+      const erreurNom = firstErrorMessage(reponseNom);
+      const blocNom = reponseNom.blocks[0];
+      const itemsNom = !erreurNom && blocNom?.kind === "list" ? blocNom.items : [];
+
+      // reponseContenu est null quand le délai ci-dessus a expiré - pas
+      // une erreur à afficher, juste une recherche de contenu qu'on
+      // n'attend plus (la recherche par nom, elle, a déjà répondu).
+      const erreurContenu = reponseContenu ? firstErrorMessage(reponseContenu) : null;
+      const blocContenu = reponseContenu?.blocks[0];
+      const itemsContenu = !erreurContenu && blocContenu?.kind === "list" ? blocContenu.items : [];
+
+      if (erreurNom && (erreurContenu || !reponseContenu)) {
+        setIsError(true);
+        setBlock({ kind: "text", body: erreurNom });
+      } else {
+        const idsDejaVus = new Set(itemsNom.map((item) => item.id));
+        const itemsFusionnes = [...itemsNom, ...itemsContenu.filter((item) => !idsDejaVus.has(item.id))];
+        setIsError(false);
+        setBlock({ kind: "list", items: itemsFusionnes });
+      }
       setIsLoading(false);
       return;
     }
