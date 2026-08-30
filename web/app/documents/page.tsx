@@ -95,7 +95,16 @@ function DocumentsPageInner() {
   const [slowNotice, setSlowNotice] = useState<SlowNotice | null>(null);
   const [completedNotice, setCompletedNotice] = useState<CompletedNotice | null>(null);
 
-  async function loadFolder(path: string) {
+  async function loadFolder(cheminBrut: string) {
+    // Un chemin peut arriver ici avec des "\" (lien profond depuis la
+    // barre de recherche du Domaine ou meta.dossier, convention Windows
+    // du backend) ou des "/" (navigation interne, voir joinPath) -
+    // currentPath doit toujours utiliser UN SEUL séparateur, sinon des
+    // fonctions comme goBack() (qui découpe sur "/") se trompent de
+    // niveau. Bug trouvé par Chris : "Retour" sautait tout un niveau
+    // (jusqu'à l'accueil) après avoir ouvert un fichier trouvé par
+    // recherche, sans passer par le dossier intermédiaire.
+    const path = cheminBrut.replace(/\\/g, "/");
     requestTokenRef.current += 1;
     setIsLoading(true);
     setError(null);
@@ -442,9 +451,19 @@ function DocumentsPageInner() {
       setReader(null);
       return;
     }
-    setSelection(null);
-    setGallerySelection(null);
-    setGridView(false);
+    if (selection) {
+      setSelection(null);
+      setGallerySelection(null);
+      setGridView(false);
+      return;
+    }
+    // Ni fichier ni lecture ouverts : on est sur un listing de dossier -
+    // "Retour" remonte alors d'un niveau, comme cliquer sur le segment
+    // précédent du fil d'Ariane. Sans ce cas, le bouton disparaissait
+    // après un seul clic (bug remonté par Chris : "retour ne fonctionne
+    // qu'une fois", alors qu'il devrait pouvoir remonter jusqu'à l'accueil).
+    const parent = currentPath.split("/").slice(0, -1).join("/");
+    loadFolder(parent);
   }
 
   function openFolder(item: ListItem) {
@@ -615,7 +634,7 @@ function DocumentsPageInner() {
             </span>
           ))}
         </div>
-        {(reader || selection) && (
+        {(reader || selection || currentPath) && (
           <button onClick={goBack} className="flex shrink-0 items-center gap-1 text-accent hover:text-accent">
             ↩ Retour
           </button>
