@@ -37,7 +37,15 @@ export default function SearchBar() {
     setIsError(false);
     setMessage("");
 
-    const reponse = await callApi("/ask", { message: texte });
+    // Sans session_id explicite, /ask retombe sur "api-session" (défaut
+    // côté API), une session UNIQUE partagée par toutes les recherches de
+    // tous les visiteurs, jamais réinitialisée - bug trouvé par Chris ("ça
+    // me renvoie toujours vers anissa") : le dossier/fichier résolu par une
+    // recherche restait mémorisé et polluait les recherches suivantes,
+    // sans rapport. Une barre de recherche doit être sans mémoire d'une
+    // requête à l'autre - une session jetable par recherche règle ça.
+    const sessionId = crypto.randomUUID();
+    const reponse = await callApi("/ask", { message: texte, session_id: sessionId });
     if (requestTokenRef.current !== token) return;
 
     const erreur = firstErrorMessage(reponse);
@@ -62,11 +70,24 @@ export default function SearchBar() {
     // que d'ouvrir un apercu limite dans ce petit widget - demande de
     // Chris ("m'amener directement dans le bon niveau de l'application
     // document").
+    //
+    // item.id n'inclut pas toujours le chemin du dossier parent : les
+    // resultats d'une RECHERCHE (rechercher_fichier/rechercher_contenu)
+    // portent deja le chemin complet dans id, mais ceux d'un LISTING de
+    // dossier (lister_fichiers - ex. "anissa" resolu en dossier) ne
+    // portent que le nom nu, le dossier n'etant connu que via meta.dossier
+    // (meme convention que documents/page.tsx::resolveFileTarget). Sans
+    // ca, le lien profond atterrissait a la racine au lieu du bon dossier
+    // - bug trouve par Chris ("le retour me remet a l'accueil, pas dans
+    // Aide Anissa").
+    const dossierMeta = typeof item.meta?.dossier === "string" ? item.meta.dossier : null;
+    const cheminComplet = dossierMeta ? `${dossierMeta}\\${item.id}` : item.id;
+
     const params = new URLSearchParams();
     if (item.meta?.type === "dossier") {
-      params.set("dossier", item.id);
+      params.set("dossier", cheminComplet);
     } else {
-      params.set("fichier", item.id);
+      params.set("fichier", cheminComplet);
       const extrait = premierExtrait(item);
       if (extrait?.ligne) params.set("ligne", String(extrait.ligne));
     }
