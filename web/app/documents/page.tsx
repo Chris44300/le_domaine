@@ -131,6 +131,7 @@ function DocumentsPageInner() {
     const dossierParam = searchParams.get("dossier");
     const fichierParam = searchParams.get("fichier");
     const ligneParam = searchParams.get("ligne");
+    const imageParam = searchParams.get("image");
 
     if (fichierParam) {
       const derniereBarre = Math.max(fichierParam.lastIndexOf("/"), fichierParam.lastIndexOf("\\"));
@@ -139,11 +140,19 @@ function DocumentsPageInner() {
       const itemCible: ListItem = {
         id: fichierParam,
         label: nomFichier,
-        meta: { type: "fichier", dossier: dossierDuFichier },
+        meta: { type: "fichier", dossier: dossierDuFichier, image: imageParam === "1" },
       };
       // eslint-disable-next-line react-hooks/set-state-in-effect
       loadFolder(dossierDuFichier ?? "");
-      if (ligneParam) {
+      if (imageParam === "1") {
+        // Une image n'a pas de contenu texte à lire - sans ce cas à
+        // part (même logique que openSelection()), le lien profond
+        // tentait quand même /documents/read-page, qui échouait avec
+        // "Format non pris en charge" avant qu'un repli affiche
+        // l'image quand même (message d'erreur qui clignotait).
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setSelection({ item: itemCible, kind: "image" });
+      } else if (ligneParam) {
         openReaderAt(itemCible, Number(ligneParam));
       } else {
         openFile(itemCible, "read");

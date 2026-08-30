@@ -16,6 +16,7 @@ function premierExtrait(item: ListItem): { texte: string; ligne: number | null }
 
 export default function SearchBar() {
   const router = useRouter();
+  const [mode, setMode] = useState<"motcle" | "texte">("motcle");
   const [message, setMessage] = useState("");
   const [block, setBlock] = useState<Block | null>(null);
   const [isError, setIsError] = useState(false);
@@ -25,6 +26,12 @@ export default function SearchBar() {
   // bug trouve par Chris ("je tape budget je retombe sur le texte
   // d'anissa"), meme mecanisme que documents/page.tsx.
   const requestTokenRef = useRef(0);
+
+  function changerMode(nouveauMode: "motcle" | "texte") {
+    setMode(nouveauMode);
+    setBlock(null);
+    setIsError(false);
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -36,6 +43,27 @@ export default function SearchBar() {
     setBlock(null);
     setIsError(false);
     setMessage("");
+
+    // Mode "Mot-clé" : appelle directement /documents/search, sans passer
+    // par le routeur LLM - une recherche par mot-clé doit toujours
+    // chercher, jamais deviner s'il faut chercher ou discuter. Corrige le
+    // "gros bug" remonté par Chris via les logs : "AON" ou "Seenovate"
+    // (des noms de fichiers réels) atterrissaient en mode conversation
+    // libre côté LLM ("AON est une société de courtage d'assurances...")
+    // au lieu de chercher dans les documents - le LLM ne pouvait pas
+    // deviner qu'un mot correspondait à un fichier local sans que
+    // l'utilisateur le lui dise explicitement. Même principe que le
+    // choix "🔍 Mot-clé" / "💬 Question" déjà validé dans la salle
+    // Documents (documents/page.tsx).
+    if (mode === "motcle") {
+      const reponse = await callApi("/documents/search", { mot_cle: texte, dossier: null });
+      if (requestTokenRef.current !== token) return;
+      const erreur = firstErrorMessage(reponse);
+      setIsError(erreur !== null);
+      setBlock(erreur ? { kind: "text", body: erreur } : reponse.blocks[0] ?? { kind: "list", items: [] });
+      setIsLoading(false);
+      return;
+    }
 
     // Sans session_id explicite, /ask retombe sur "api-session" (défaut
     // côté API), une session UNIQUE partagée par toutes les recherches de
@@ -88,6 +116,12 @@ export default function SearchBar() {
       params.set("dossier", cheminComplet);
     } else {
       params.set("fichier", cheminComplet);
+      // Sans ce signal, le lien profond tentait toujours une lecture
+      // texte - une image renvoyait alors "Format non pris en charge",
+      // avant qu'un repli affiche quand même l'aperçu image en dessous
+      // (bug remonté par Chris : le message d'erreur clignotait avant
+      // que l'image s'affiche).
+      if (item.meta?.image) params.set("image", "1");
       const extrait = premierExtrait(item);
       if (extrait?.ligne) params.set("ligne", String(extrait.ligne));
     }
@@ -161,12 +195,29 @@ export default function SearchBar() {
           </ul>
         )}
 
+        <div className="flex gap-2 text-xs">
+          <button
+            type="button"
+            onClick={() => changerMode("motcle")}
+            className={`rounded-full px-3 py-1 ${mode === "motcle" ? "bg-accent text-white" : "bg-surface text-foreground/60"}`}
+          >
+            🔍 Mot-clé
+          </button>
+          <button
+            type="button"
+            onClick={() => changerMode("texte")}
+            className={`rounded-full px-3 py-1 ${mode === "texte" ? "bg-accent text-white" : "bg-surface text-foreground/60"}`}
+          >
+            💬 Texte
+          </button>
+        </div>
+
         <form onSubmit={handleSubmit} className="flex gap-2">
           <input
             type="text"
             value={message}
             onChange={(event) => setMessage(event.target.value)}
-            placeholder="Demande quelque chose au Domaine…"
+            placeholder={mode === "motcle" ? "Chercher un mot-clé…" : "Pose une question au Domaine…"}
             className="flex-1 rounded-full border border-border bg-surface px-4 py-3 text-sm text-foreground outline-none focus:border-accent"
           />
           <button
