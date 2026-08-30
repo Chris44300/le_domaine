@@ -1058,6 +1058,37 @@ architecture.
     (tâche planifiée cron/Planificateur de tâches qui déclenche
     l'extraction de chaque fichier) mais pas fait — Chris doit
     confirmer s'il veut que ce soit la prochaine étape.
+- [x] 6.2quinquies (ajouté le 2026-08-30, même journée) : trois derniers
+      retours de Chris sur le mode Texte et l'affichage des occurrences.
+  - **Occurrences regroupées** : un fichier avec plusieurs mentions
+    (ex. "BFR" trouvé ligne 50 ET 51 de "Cours JFM.docx") affichait
+    deux cartes identiques répétant le nom du fichier. Regroupées sous
+    une seule carte, occurrences listées dessous, chacune restant
+    individuellement cliquable.
+  - **Mémoire de conversation** : chaque question au mode Texte
+    repartait de zéro ("donne moi l'accès", en suite d'un "ouvre le
+    dossier anissa" précédent, ne voulait rien dire au modèle). Ajout
+    d'un historique visible (bulles question/réponse), transmis par le
+    client à chaque appel — le serveur reste sans état (pas de
+    session_id, même principe que le mode Mot-clé), donc aucun risque
+    de pollution entre visiteurs comme celle trouvée sur `/ask`. Un
+    bouton "Réinitialiser la conversation" efface tout sur demande.
+  - **Accès document en mode Texte** : `/agent/ask` peut désormais
+    renvoyer un second bloc "liste" cliquable en plus du texte, quand
+    le dernier outil de recherche/listing appelé par la boucle a
+    réussi — mêmes constructeurs que `/documents/*` et le mode
+    Mot-clé.
+  - Vérifié en direct : "BFR" → une carte "Cours JFM.docx" avec L50 et
+    L51 dessous ; "ouvre le dossier anissa" puis "donne moi l'accès"
+    montre que le modèle comprend maintenant de quel dossier il parle
+    (avant : question totalement hors-sujet) ; Reset efface la
+    conversation proprement.
+  - **Limite honnête observée en testant** : quand le modèle répond à
+    une relance depuis sa propre mémoire de conversation sans rappeler
+    d'outil ce tour-ci, aucun bloc navigable n'est généré pour ce
+    tour-là — mémoire et bloc navigable ne se combinent pas toujours
+    parfaitement. À suivre sur usage réel plutôt qu'à sur-corriger sans
+    plus de cas concrets.
 - [ ] 6.3 Revisiter seulement maintenant (pas avant) la question du
       routage à 2 étages (classer le domaine avant d'exposer ses outils au
       LLM) — à ne faire que si le nombre d'outils cause un vrai problème
