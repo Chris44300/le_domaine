@@ -792,6 +792,32 @@ depuis le Domaine, où que Chris se trouve.
 > ne fait pas de distinction entre "mini-PC" et "PC principal". Migration
 > vers le vrai mini-PC/NAS plus tard : reconnecter Tailscale sur la
 > nouvelle machine, rien à changer côté Domaine/API.
+>
+> **Révision du 2026-08-31 : matériel choisi.** Mini PC : **Geekom A6**
+> (Ryzen 7 6800, 8c/16t, ~530€, 1 To NVMe réservé à l'OS/l'appli/le
+> cache — pas au stockage des documents). NAS : **Synology DS224+**
+> (~299€, CPU Intel Celeron J4125, RAM extensible à 6 Go, Btrfs) — pas
+> le DS223 (CPU ARM, RAM non extensible, plus cher pour moins bien).
+> **Architecture de stockage tranchée** : le NAS est la source de
+> vérité UNIQUE des documents de Chris (volume réel à venir : centaines
+> de Go, le `C:\Perso` mesuré à 3,2 Go sur le PC actuel n'est qu'un PC
+> de travail, pas représentatif). Le mini-PC ne stocke AUCUNE copie des
+> documents - il les lit à la volée sur le NAS par le réseau (partage
+> SMB). Confirmé techniquement viable : la lecture réseau est
+> transparente pour Python (`open()` marche pareil sur un chemin UNC
+> que sur un chemin local) et pour l'OCR Tesseract (ne travaille que
+> sur des octets en mémoire, indifférent à la source). Point
+> d'implémentation à respecter le moment venu : utiliser un **chemin
+> UNC direct** (`\\DS224+\...`) plutôt qu'un **lecteur réseau mappé**
+> (lettre du type `Z:\`) - un lecteur mappé ne persiste que dans la
+> session qui l'a créé, un chemin UNC avec identifiants enregistrés
+> marche quel que soit comment le service Nigel est lancé. Compromis
+> accepté : une brève indisponibilité de lecture si le NAS redémarre
+> (mise à jour DSM) - géré comme une erreur ponctuelle, pas un crash.
+> Achat pas encore fait à cette date ; migration à traiter comme son
+> propre morceau de travail le moment venu (vérifier notamment comment
+> Nigel centralise aujourd'hui la racine des documents avant de changer
+> quoi que ce soit).
 
 - [x] 5.1 🎓 Tailscale (fait par Chris, confirmé le 2026-08-29) :
   - [x] 5.1.1 Compte créé, installé sur le PC actuel de Chris (relais
