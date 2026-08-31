@@ -13,6 +13,15 @@ export default async function Home() {
 
   return (
     <div className="flex flex-1 flex-col items-center px-6 pb-40 pt-16">
+      <div className="flex w-full max-w-xl items-center justify-end">
+        <Link
+          href="/parametres"
+          aria-label="Réglages"
+          className="flex h-9 w-9 items-center justify-center rounded-full text-lg text-foreground/50 hover:text-accent"
+        >
+          ⚙️
+        </Link>
+      </div>
       <h1 className="text-2xl font-semibold tracking-tight text-foreground">
         Le Domaine
       </h1>

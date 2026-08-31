@@ -7,6 +7,30 @@
   --surface-muted: #efeae2;
   --accent: #a9762f;
   --border: #e2ddd4;
+
+  /* Tokens semantiques utilises par les ecrans de Menage - dans la meme
+     famille chaude que le reste de Domaine (demande de Chris le
+     2026-08-31 : "meme code couleur pour les deux", plus de palette bleue
+     separee). primary = accent : les boutons d'action de Menage utilisent
+     exactement la meme teinte que ceux du reste de Domaine. */
+  --muted: #8a8175;
+  --primary: var(--accent);
+  --primary-dark: #8a5e22;
+  --primary-foreground: #ffffff;
+  --success: #4a8a5c;
+  --success-soft: #e6f3ea;
+  --warning: #c17a3f;
+  --warning-soft: #f7ece0;
+  --urgent: #c1493f;
+  --urgent-soft: #f8e6e3;
+  --info-soft: #efe8da;
+  /* Legerement plus fonce que l'accent - garde une distinction visuelle
+     "to do ponctuelle" vs "action principale" sans sortir de la famille. */
+  --todo: #8a6d1f;
+  --todo-soft: #f7f0d9;
+
+  --shadow-card: 0 1px 2px rgba(28, 26, 23, 0.06), 0 6px 16px -8px rgba(169, 118, 47, 0.18);
+  --shadow-nav: 0 -2px 12px -4px rgba(28, 26, 23, 0.08);
 }
 
 @theme inline {
@@ -19,11 +43,6 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 
-  /* Tokens propres à Ménage (voir .menage-shell ci-dessous) - enregistrés
-     ici pour que Tailwind génère les classes utilitaires correspondantes
-     (bg-primary, text-muted, bg-success-soft, ...), mais leur valeur réelle
-     n'est posée que dans .menage-shell : en dehors de /menage, ces classes
-     n'ont simplement pas d'effet visible. */
   --color-muted: var(--muted);
   --color-primary: var(--primary);
   --color-primary-dark: var(--primary-dark);
@@ -40,41 +59,11 @@
 }
 
 /**
- * Palette et police de Ménage, à l'identique de son déploiement autonome -
- * volontairement DIFFÉRENTE de celle du Domaine (voir :root ci-dessus).
- * Appliquée seulement sous cette classe (posée sur le conteneur racine de
- * app/menage/layout.tsx) pour ne jamais déteindre sur le reste du Domaine,
- * y compris les tokens au nom identique (background, surface, foreground,
- * border, accent) : la cascade CSS ne remplace la valeur que pour ce qui
- * est rendu à l'intérieur de .menage-shell.
+ * Menage garde sa propre police (plus neutre, System UI) mais partage
+ * desormais entierement la palette de couleurs de Domaine - voir :root
+ * et le bloc sombre plus bas. Plus aucune couleur definie ici.
  */
 .menage-shell {
-  --background: #f5f8fc;
-  --surface: #ffffff;
-  --foreground: #263041;
-  --muted: #7c8a9a;
-  --border: #e5ecf3;
-
-  --primary: #4f8fe0;
-  --primary-dark: #3c72bd;
-  --primary-foreground: #ffffff;
-  --accent: #6bc2a3;
-
-  --success: #38a06d;
-  --success-soft: #e5f7ee;
-  --warning: #e08a6b;
-  --warning-soft: #fdf0ea;
-  --urgent: #e0574a;
-  --urgent-soft: #fbe8e5;
-  --info-soft: #e9f2fd;
-  --todo: #b8942f;
-  --todo-soft: #fbf3d9;
-
-  --shadow-card: 0 1px 2px rgba(38, 48, 65, 0.04), 0 6px 16px -8px rgba(79, 143, 224, 0.18);
-  --shadow-nav: 0 -2px 12px -4px rgba(38, 48, 65, 0.06);
-
-  background: var(--background);
-  color: var(--foreground);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
@@ -126,15 +115,58 @@
   animation: soft-pulse 1s ease-in-out infinite;
 }
 
+/* Palette sombre : suit le systeme par defaut (prefers-color-scheme), sauf
+   si la personne a explicitement choisi "Clair" dans Réglages
+   (data-theme="light" sur <html>, voir app/parametres/). */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --background: #14120f;
     --foreground: #f2ede4;
     --surface: #1f1c18;
     --surface-muted: #262220;
     --accent: #d9a94f;
     --border: #322d26;
+
+    --muted: #a89c8a;
+    --primary-dark: #b8863a;
+    --success: #5cad76;
+    --success-soft: #24352a;
+    --warning: #d99a63;
+    --warning-soft: #3a2e22;
+    --urgent: #d97a6f;
+    --urgent-soft: #3a2420;
+    --info-soft: #2a251e;
+    --todo: #c99a3a;
+    --todo-soft: #332c1c;
+
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 16px -8px rgba(217, 169, 79, 0.15);
+    --shadow-nav: 0 -2px 12px -4px rgba(0, 0, 0, 0.4);
   }
+}
+
+/* Choix explicite "Sombre" dans Réglages, quel que soit le système. */
+:root[data-theme="dark"] {
+  --background: #14120f;
+  --foreground: #f2ede4;
+  --surface: #1f1c18;
+  --surface-muted: #262220;
+  --accent: #d9a94f;
+  --border: #322d26;
+
+  --muted: #a89c8a;
+  --primary-dark: #b8863a;
+  --success: #5cad76;
+  --success-soft: #24352a;
+  --warning: #d99a63;
+  --warning-soft: #3a2e22;
+  --urgent: #d97a6f;
+  --urgent-soft: #3a2420;
+  --info-soft: #2a251e;
+  --todo: #c99a3a;
+  --todo-soft: #332c1c;
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 16px -8px rgba(217, 169, 79, 0.15);
+  --shadow-nav: 0 -2px 12px -4px rgba(0, 0, 0, 0.4);
 }
 
 body {
