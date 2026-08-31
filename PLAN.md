@@ -90,7 +90,9 @@ cette liste si l'ordre change plutôt que de la laisser devenir fausse.
          (Aujourd'hui/Semaine/Historique/Réglages) — plus de lien
          externe. Les 4 écrans principaux de Ménage sont donc tous
          portés ; le site Ménage externe reste la seule référence pour
-         les notifications push.
+         les notifications push. `loading.tsx` (écran de chargement)
+         également porté - étape B considérée complète pour tout ce
+         qui n'est pas notifications.
      - [ ] **C — Permissions par personne** : qui voit quelle
        application. Portée confirmée par Chris le 2026-08-30 : **Mel
        a accès à Documents + Ménage + Chat, pas au reste** (pas de
