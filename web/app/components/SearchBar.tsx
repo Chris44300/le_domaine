@@ -58,6 +58,12 @@ export default function SearchBar() {
   // (bouton "Voir les documents associés") - retour de Chris : les
   // proposer par défaut à chaque tour prenait de la place pour rien.
   const [toursDocumentsOuverts, setToursDocumentsOuverts] = useState<Set<number>>(new Set());
+  // Repliée en petit bouton flottant par défaut, partout - retour de
+  // Chris : la barre pleine largeur, toujours affichée, se superposait à
+  // la nav du bas de Ménage (et masquait le contenu ailleurs). Reste un
+  // "ambassadeur toujours dispo" (persiste entre les pages, le composant
+  // ne se démonte pas), juste replié tant qu'on n'a pas cliqué dessus.
+  const [ouvert, setOuvert] = useState(false);
 
   function toggleDocumentsAssocies(index: number) {
     setToursDocumentsOuverts((precedent) => {
@@ -319,9 +325,40 @@ export default function SearchBar() {
   // sauter certains d'un rendu à l'autre (règle des hooks React).
   if (pathname === "/login") return null;
 
+  if (!ouvert) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOuvert(true)}
+        aria-label="Ouvrir l'assistant du Domaine"
+        // bottom-20 (pas bottom-4) : reste au-dessus de la nav du bas de
+        // Ménage (~72px) même sur les pages qui n'en ont pas - un peu de
+        // marge constante partout plutôt qu'une logique par page à tenir
+        // à jour à chaque nouvelle nav ajoutée ailleurs dans Domaine.
+        className="fixed bottom-20 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-2xl text-white shadow-lg transition active:scale-95"
+      >
+        💬
+        {historiqueTexte.length > 0 && (
+          <span className="absolute right-0 top-0 h-3 w-3 rounded-full border-2 border-background bg-emerald-500" />
+        )}
+      </button>
+    );
+  }
+
   return (
-    <div className="fixed inset-x-0 bottom-0 border-t border-border bg-background/95 backdrop-blur px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4">
-      <div className="mx-auto flex w-full max-w-xl flex-col gap-3">
+    <div className="fixed inset-x-4 bottom-20 z-40 mx-auto max-w-xl overflow-hidden rounded-2xl border border-border bg-background shadow-xl">
+      <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
+        <span className="text-xs font-medium text-foreground/60">Le Domaine</span>
+        <button
+          type="button"
+          onClick={() => setOuvert(false)}
+          aria-label="Replier l'assistant du Domaine"
+          className="text-foreground/50 hover:text-accent"
+        >
+          ✕
+        </button>
+      </div>
+      <div className="flex max-h-[75vh] w-full flex-col gap-3 overflow-y-auto p-4">
         {mode === "texte" && historiqueTexte.length > 0 && (
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between text-xs">
