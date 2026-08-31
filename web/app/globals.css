@@ -1,36 +1,35 @@
 @import "tailwindcss";
 
+/* Thème clair : la palette de Ménage d'origine, que Chris préfère - remise
+   telle quelle le 2026-08-31 après un premier essai (palette ambrée
+   maison) qu'il n'a pas aimé pour ce mode. Le thème sombre, lui, reste
+   dans la famille ambrée de Domaine (voir plus bas) - assumé : les deux
+   thèmes n'ont pas la même teinte de marque, seule la cohérence au sein
+   d'un même thème (Domaine et Ménage identiques) compte pour Chris. */
 :root {
-  --background: #f7f5f2;
-  --foreground: #1c1a17;
+  --background: #f5f8fc;
+  --foreground: #263041;
   --surface: #ffffff;
-  --surface-muted: #efeae2;
-  --accent: #a9762f;
-  --border: #e2ddd4;
+  --surface-muted: #eaf1fa;
+  --accent: #6bc2a3;
+  --border: #e5ecf3;
 
-  /* Tokens semantiques utilises par les ecrans de Menage - dans la meme
-     famille chaude que le reste de Domaine (demande de Chris le
-     2026-08-31 : "meme code couleur pour les deux", plus de palette bleue
-     separee). primary = accent : les boutons d'action de Menage utilisent
-     exactement la meme teinte que ceux du reste de Domaine. */
-  --muted: #8a8175;
-  --primary: var(--accent);
-  --primary-dark: #8a5e22;
+  --muted: #7c8a9a;
+  --primary: #4f8fe0;
+  --primary-dark: #3c72bd;
   --primary-foreground: #ffffff;
-  --success: #4a8a5c;
-  --success-soft: #e6f3ea;
-  --warning: #c17a3f;
-  --warning-soft: #f7ece0;
-  --urgent: #c1493f;
-  --urgent-soft: #f8e6e3;
-  --info-soft: #efe8da;
-  /* Legerement plus fonce que l'accent - garde une distinction visuelle
-     "to do ponctuelle" vs "action principale" sans sortir de la famille. */
-  --todo: #8a6d1f;
-  --todo-soft: #f7f0d9;
+  --success: #38a06d;
+  --success-soft: #e5f7ee;
+  --warning: #e08a6b;
+  --warning-soft: #fdf0ea;
+  --urgent: #e0574a;
+  --urgent-soft: #fbe8e5;
+  --info-soft: #e9f2fd;
+  --todo: #b8942f;
+  --todo-soft: #fbf3d9;
 
-  --shadow-card: 0 1px 2px rgba(28, 26, 23, 0.06), 0 6px 16px -8px rgba(169, 118, 47, 0.18);
-  --shadow-nav: 0 -2px 12px -4px rgba(28, 26, 23, 0.08);
+  --shadow-card: 0 1px 2px rgba(38, 48, 65, 0.04), 0 6px 16px -8px rgba(79, 143, 224, 0.18);
+  --shadow-nav: 0 -2px 12px -4px rgba(38, 48, 65, 0.06);
 }
 
 @theme inline {

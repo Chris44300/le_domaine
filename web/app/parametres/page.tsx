@@ -65,7 +65,9 @@ export default function ParametresPage() {
           ))}
         </div>
         <p className="mt-2 text-xs text-foreground/50">
-          Même palette partout, y compris dans Ménage.
+          Système suit le réglage clair/sombre de votre téléphone ou
+          navigateur - Clair et Sombre l&apos;imposent, quel que soit ce
+          réglage. Même palette partout, y compris dans Ménage.
         </p>
       </section>
     </div>
