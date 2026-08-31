@@ -5,6 +5,7 @@ const tiles = [
   { href: "/tasks", app: "tasks", icon: "✅", label: "Tâches" },
   { href: "/documents", app: "documents", icon: "📁", label: "Documents" },
   { href: "/menage", app: "menage", icon: "🧺", label: "Ménage" },
+  { href: "/roadmap", app: "roadmap", icon: "🗺️", label: "Road Map" },
 ];
 
 export default async function Home() {

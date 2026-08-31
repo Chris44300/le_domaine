@@ -157,6 +157,16 @@ cette liste si l'ordre change plutôt que de la laisser devenir fausse.
 7. **Alerte si le serveur tombe complètement** (aujourd'hui : alerte
    sur l'échec du balayage planifié seulement, pas sur une panne
    générale de l'API).
+8. [x] **Pièce Road Map** (demande de Chris le 2026-08-31, en parallèle
+   du reste) — nouvelle tuile d'accueil `/roadmap` : une vision de la
+   feuille de route lisible (pas `PLAN.md` brut, tenue à jour à la main
+   dans `app/roadmap/page.tsx`), et une boîte à suggestions où Chris et
+   Mel notent leurs idées au fil de l'eau (table `suggestions`,
+   `supabase/migration_009_road_map_suggestions.sql` dans le dépôt
+   Ménage — même mécanisme RLS par foyer que le reste). Mel a accès
+   (explicitement citée par Chris comme autrice de suggestions).
+   Vérifié en conditions réelles : ajout d'une suggestion visible
+   immédiatement avec auteur + date, comptage à jour.
 
 ### Note : intégration visuelle de Ménage (Étape 3 ci-dessus)
 

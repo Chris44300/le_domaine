@@ -207,6 +207,26 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["todos"]["Insert"]>;
         Relationships: [];
       };
+      suggestions: {
+        Row: {
+          id: string;
+          household_id: string;
+          texte: string;
+          auteur_member_id: string | null;
+          statut: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          household_id: string;
+          texte: string;
+          auteur_member_id?: string | null;
+          statut?: string;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["suggestions"]["Insert"]>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {

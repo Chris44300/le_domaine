@@ -15,6 +15,7 @@ const ROUTE_APP: { prefix: string; app: string }[] = [
   { prefix: "/tasks", app: "tasks" },
   { prefix: "/documents", app: "documents" },
   { prefix: "/menage", app: "menage" },
+  { prefix: "/roadmap", app: "roadmap" },
 ];
 
 /**
