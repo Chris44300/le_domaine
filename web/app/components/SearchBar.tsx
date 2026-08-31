@@ -19,6 +19,19 @@ function toutesLesOccurrences(item: ListItem): { texte: string; ligne: number | 
   return Array.isArray(extraits) ? (extraits as { texte: string; ligne: number | null }[]) : [];
 }
 
+// Lundi de la semaine calendaire contenant une date "YYYY-MM-DD" - meme
+// convention que Ménage lui-même (web/lib/dates.ts::startOfIsoWeek), pour
+// que le lien profond vers /menage/semaine tombe sur la bonne semaine (pas
+// toujours la semaine EN COURS - bug trouvé en testant, ex. "Entretien
+// aspirateur" dû la semaine prochaine renvoyait quand même vers celle-ci).
+function lundiDeLaSemaine(iso: string): string {
+  const date = new Date(`${iso}T00:00:00Z`);
+  const jour = date.getUTCDay(); // 0=dimanche, 1=lundi, ..., 6=samedi
+  const decalage = jour === 0 ? -6 : 1 - jour;
+  date.setUTCDate(date.getUTCDate() + decalage);
+  return date.toISOString().slice(0, 10);
+}
+
 type TourTexte =
   | { role: "user"; content: string }
   | { role: "assistant"; content: string; sources?: ListItem[]; items?: ListItem[] };
@@ -84,6 +97,23 @@ export default function SearchBar() {
   const requestTokenRef = useRef(0);
 
   function changerMode(nouveauMode: "motcle" | "texte") {
+    // Une recherche Mot-clé en cours d'affichage bascule dans l'historique
+    // Texte au lieu de simplement disparaître - demande de Chris : "on a
+    // parfois envie de commencer par un mot-clé puis de poser une question
+    // dans la continuité". Sans ça, la question suivante en mode Texte ne
+    // savait rien de ce qui venait d'être cherché (le serveur ne connaît
+    // que historiqueTexte, jamais dernierMotCle/block).
+    if (nouveauMode === "texte" && mode === "motcle" && dernierMotCle && block?.kind === "list") {
+      const resume =
+        block.items.length > 0
+          ? `${block.items.length} résultat(s) : ${block.items.map((i) => i.label).join(", ")}`
+          : "Aucun résultat.";
+      setHistoriqueTexte((h) => [
+        ...h,
+        { role: "user", content: `Recherche « ${dernierMotCle} »` },
+        { role: "assistant", content: resume, items: block.items.length > 0 ? block.items : undefined },
+      ]);
+    }
     setMode(nouveauMode);
     setBlock(null);
     setIsError(false);
@@ -280,7 +310,16 @@ export default function SearchBar() {
     // Pas de lien vers une carte precise (pas d'id stable cote UI Menage
     // aujourd'hui, voir api/menage.py) - amene au bon ECRAN : Semaine pour
     // une tache recurrente, Aujourd'hui (ou vivent les to-do) sinon.
-    router.push(item.meta?.categorie === "recurrente" ? "/menage/semaine" : "/menage");
+    if (item.meta?.categorie !== "recurrente") {
+      router.push("/menage");
+      return;
+    }
+    // meta.date (l'echeance de CETTE tache) determine la semaine ciblee -
+    // sans ca, on atterrissait toujours sur la semaine EN COURS, meme pour
+    // une tache due plus tard (retour de Chris sur "Entretien aspirateur").
+    const date = typeof item.meta?.date === "string" ? item.meta.date : null;
+    const semaine = date ? lundiDeLaSemaine(date) : null;
+    router.push(semaine ? `/menage/semaine?semaine=${semaine}` : "/menage/semaine");
   }
 
   // Regroupe les items par categorie (meta.categorie: "todo" | "recurrente"
