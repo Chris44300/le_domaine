@@ -29,7 +29,7 @@ cette liste si l'ordre change plutôt que de la laisser devenir fausse.
      le 2026-08-30 "on fusionne le code")** : voir la note ci-dessous
      pour le pourquoi. Découpée en 3 sous-étapes :
      - [x] **A — Fondation auth** : Supabase Auth ajouté à Le Domaine
-       (`app/lib/supabase/`, `proxy.ts`, `app/login/LoginForm.tsx`,
+       (`web/lib/supabase/`, `proxy.ts`, `app/login/LoginForm.tsx`,
        `app/auth/confirm/route.ts`), en réutilisant tel quel le
        mécanisme de connexion de Ménage (code reçu par email, saisi
        dans l'appli — pas de lien cliquable, pour éviter les deux bugs
@@ -45,11 +45,29 @@ cette liste si l'ordre change plutôt que de la laisser devenir fausse.
        reste déployé et inchangé (`application-taches-menageres.vercel.app`)
        pendant toute la durée du chantier — zéro risque pour l'usage
        quotidien de Mel.
-     - [ ] **B — Écrans Ménage portés dans Domaine** : pages
-       `/menage/*` dans ce dépôt, appelant Supabase directement côté
-       navigateur avec RLS (pas la clé secrète du connecteur Nigel,
-       réservée au serveur/chat). Aucune donnée déplacée — même base.
-       Pas commencé.
+     - **B — Écrans Ménage portés dans Domaine** : pages `/menage/*`
+       dans ce dépôt, appelant Supabase directement côté navigateur
+       avec RLS (pas la clé secrète du connecteur Nigel, réservée au
+       serveur/chat). Aucune donnée déplacée — même base. Chris a
+       confirmé le 2026-08-31 qu'on garde la forme de Ménage "à
+       l'identique" (mêmes couleurs, même police, même barre de
+       navigation en bas) — juste hébergé dans Domaine, plus de nouvel
+       onglet à l'ouverture. Découpée écran par écran, validée en
+       conditions réelles à chaque fois avant de continuer :
+       - [x] **B1 — Aujourd'hui** (`/menage`) : tâches du jour/en
+         retard, to-do, cocher fait, reporter, ajouter une to-do,
+         filtre par personne, notif temps réel entre foyers (Supabase
+         Realtime). Palette et police de Ménage isolées dans
+         `.menage-shell` (`app/globals.css`) pour ne pas déteindre sur
+         le reste de Domaine. La nav du bas pointe encore vers le site
+         Ménage externe pour Semaine/Historique/Réglages (pas encore
+         portés) — à retirer au fur et à mesure de B2-B4. Vérifié en
+         conditions réelles le 2026-08-31 : connexion, lecture des
+         vraies données (13 to-do, tâches du jour), écriture réelle
+         confirmée (to-do cochée puis annulée par Chris), aucune
+         régression sur Tâches/Documents.
+       - [ ] **B2 — Semaine**, **B3 — Historique**, **B4 — Réglages** :
+         pas commencées.
      - [ ] **C — Permissions par personne** : qui voit quelle
        application. Portée confirmée par Chris le 2026-08-30 : **Mel
        a accès à Documents + Ménage + Chat, pas au reste** (pas de

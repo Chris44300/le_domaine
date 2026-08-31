@@ -1,10 +1,9 @@
 import Link from "next/link";
 
-const MENAGE_URL = "https://application-taches-menageres.vercel.app/";
-
 const tiles = [
   { href: "/tasks", icon: "✅", label: "Tâches" },
   { href: "/documents", icon: "📁", label: "Documents" },
+  { href: "/menage", icon: "🧺", label: "Ménage" },
 ];
 
 export default function Home() {
@@ -25,15 +24,6 @@ export default function Home() {
             <span className="text-sm font-medium">{tile.label}</span>
           </Link>
         ))}
-        <a
-          href={MENAGE_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex aspect-square flex-col items-center justify-center gap-2 rounded-2xl border border-border bg-surface text-foreground"
-        >
-          <span className="text-3xl">🧺</span>
-          <span className="text-sm font-medium">Ménage</span>
-        </a>
       </div>
     </div>
   );

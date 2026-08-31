@@ -18,6 +18,112 @@
   --color-border: var(--border);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* Tokens propres à Ménage (voir .menage-shell ci-dessous) - enregistrés
+     ici pour que Tailwind génère les classes utilitaires correspondantes
+     (bg-primary, text-muted, bg-success-soft, ...), mais leur valeur réelle
+     n'est posée que dans .menage-shell : en dehors de /menage, ces classes
+     n'ont simplement pas d'effet visible. */
+  --color-muted: var(--muted);
+  --color-primary: var(--primary);
+  --color-primary-dark: var(--primary-dark);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-urgent: var(--urgent);
+  --color-urgent-soft: var(--urgent-soft);
+  --color-info-soft: var(--info-soft);
+  --color-todo: var(--todo);
+  --color-todo-soft: var(--todo-soft);
+}
+
+/**
+ * Palette et police de Ménage, à l'identique de son déploiement autonome -
+ * volontairement DIFFÉRENTE de celle du Domaine (voir :root ci-dessus).
+ * Appliquée seulement sous cette classe (posée sur le conteneur racine de
+ * app/menage/layout.tsx) pour ne jamais déteindre sur le reste du Domaine,
+ * y compris les tokens au nom identique (background, surface, foreground,
+ * border, accent) : la cascade CSS ne remplace la valeur que pour ce qui
+ * est rendu à l'intérieur de .menage-shell.
+ */
+.menage-shell {
+  --background: #f5f8fc;
+  --surface: #ffffff;
+  --foreground: #263041;
+  --muted: #7c8a9a;
+  --border: #e5ecf3;
+
+  --primary: #4f8fe0;
+  --primary-dark: #3c72bd;
+  --primary-foreground: #ffffff;
+  --accent: #6bc2a3;
+
+  --success: #38a06d;
+  --success-soft: #e5f7ee;
+  --warning: #e08a6b;
+  --warning-soft: #fdf0ea;
+  --urgent: #e0574a;
+  --urgent-soft: #fbe8e5;
+  --info-soft: #e9f2fd;
+  --todo: #b8942f;
+  --todo-soft: #fbf3d9;
+
+  --shadow-card: 0 1px 2px rgba(38, 48, 65, 0.04), 0 6px 16px -8px rgba(79, 143, 224, 0.18);
+  --shadow-nav: 0 -2px 12px -4px rgba(38, 48, 65, 0.06);
+
+  background: var(--background);
+  color: var(--foreground);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.shadow-card {
+  box-shadow: var(--shadow-card);
+}
+
+.shadow-nav {
+  box-shadow: var(--shadow-nav);
+}
+
+@keyframes celebrate-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.6) translateY(8px);
+  }
+  15% {
+    opacity: 1;
+    transform: scale(1.08) translateY(0);
+  }
+  30% {
+    transform: scale(1) translateY(0);
+  }
+  80% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.96) translateY(-6px);
+  }
+}
+
+.animate-celebrate-pop {
+  animation: celebrate-pop 1800ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes soft-pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.animate-soft-pulse {
+  animation: soft-pulse 1s ease-in-out infinite;
 }
 
 @media (prefers-color-scheme: dark) {

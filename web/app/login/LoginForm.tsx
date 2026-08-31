@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
-import { createClient } from "../lib/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 
 type Step = "email" | "code";
 
