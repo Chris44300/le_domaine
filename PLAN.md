@@ -112,6 +112,38 @@ cette liste si l'ordre change plutôt que de la laisser devenir fausse.
        - [ ] **C2 — Accès aux outils du chat** (Nigel, backend Python) :
          filtrer les outils exposés au LLM selon qui pose la question
          (`assistant/agent_tools.py`/`registry.py`) - pas commencé.
+     - [x] **D — Ménage interactif dans le chat et le mode Mot-clé**
+       (demande de Chris le 2026-08-31 : "comme avec document,
+       interagir"). Nouvel outil `lister_taches_menage_semaine` (Nigel)
+       - taches récurrentes dues d'ici dimanche + to-do ouvertes, une
+       seule vue pour "toutes les tâches" comme pour "la semaine".
+       Nouveau `api/menage.py` (Nigel) : blocs cliquables pour tous les
+       outils Ménage du chat (même contrat que `api/documents.py`),
+       nouvelle route `POST /menage/search` pour le mode Mot-clé (cherche
+       aussi dans Ménage, pas seulement les documents). Côté Domaine
+       (`SearchBar.tsx`) : les résultats Ménage sont cliquables, amènent
+       directement au bon écran (`/menage` ou `/menage/semaine`) ; une
+       réponse qui mélange to-do et tâches récurrentes se groupe en deux
+       catégories repliables indépendamment. Corrigé au passage : CORS
+       n'autorisait que `localhost:3000`, pas `3001` (port réellement
+       utilisé en dev local) - tout appel API en dev échouait
+       silencieusement en "Impossible de joindre l'API". Vérifié en
+       conditions réelles : "gamelle"/"ledger" en Mot-clé remontent bien
+       les résultats Ménage ; "montre-moi toutes les tâches ménagères"
+       en Texte répond avec un bloc groupé "Tâches récurrentes (9)" /
+       "To do (15)".
+     - [x] **E — Barre de recherche repliée + palette unifiée** (retours
+       de Chris le 2026-08-31 sur la fusion Ménage) : la barre plein
+       écran est devenue un petit bouton flottant (💬, coin bas-droit),
+       qui s'ouvre en carte flottante au clic - corrige le chevauchement
+       avec la nav du bas de Ménage. Lien "🏰 Retour au Domaine" ajouté
+       dans Ménage. Palette de couleurs unifiée entre Domaine et Ménage
+       (plus de bleu séparé) - **puis palette claire de Ménage remise à
+       l'identique** (bleu/teal d'origine) après retour de Chris, qui la
+       préférait à la variante ambrée proposée initialement ; le thème
+       sombre reste ambré. Nouvelle page `/parametres` (bouton ⚙️ sur
+       l'accueil) : choix Système/Clair/Sombre, appliqué via
+       `data-theme` sur `<html>`, persisté en `localStorage`.
 3. **Pièce Reporting** (Phase 7) — un peu après Ménage.
 4. **Réseau multi-utilisateurs + permissions + "Programmation"** (chat
    admin capable de modifier le code, avec snapshots/retour en

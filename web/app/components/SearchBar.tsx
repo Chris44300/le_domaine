@@ -64,6 +64,10 @@ export default function SearchBar() {
   // "ambassadeur toujours dispo" (persiste entre les pages, le composant
   // ne se démonte pas), juste replié tant qu'on n'a pas cliqué dessus.
   const [ouvert, setOuvert] = useState(false);
+  // Groupes repliables (To do / Tâches récurrentes) ouverts par l'utilisateur
+  // - clé composite "listeCle:nomDuGroupe" (voir ListeItems plus bas), levé
+  // ici plutôt que dans ListeItems pour ne pas perdre l'état à chaque frappe.
+  const [groupesOuverts, setGroupesOuverts] = useState<Set<string>>(new Set());
 
   function toggleDocumentsAssocies(index: number) {
     setToursDocumentsOuverts((precedent) => {
@@ -126,12 +130,28 @@ export default function SearchBar() {
       setDernierMotCle(texte);
       setContenuDejaCherche(false);
 
-      const reponse = await callApi("/documents/search", { mot_cle: texte, dossier: null });
+      // Documents ET Ménage cherchés en parallèle et fusionnés dans une
+      // seule liste - demande de Chris (2026-08-31) : "gamelle" ou "ledger"
+      // en Mot-clé ne remontait que les documents, jamais les tâches
+      // ménagères. Une erreur Ménage seule (ex. pas configuré) n'empêche
+      // pas d'afficher les résultats documents.
+      const [reponseDocs, reponseMenage] = await Promise.all([
+        callApi("/documents/search", { mot_cle: texte, dossier: null }),
+        callApi("/menage/search", { mot_cle: texte }),
+      ]);
       if (requestTokenRef.current !== token) return;
 
-      const erreur = firstErrorMessage(reponse);
-      setIsError(erreur !== null);
-      setBlock(erreur ? { kind: "text", body: erreur } : reponse.blocks[0] ?? { kind: "list", items: [] });
+      const erreurDocs = firstErrorMessage(reponseDocs);
+      const itemsDocs = !erreurDocs && reponseDocs.blocks[0]?.kind === "list" ? reponseDocs.blocks[0].items : [];
+      const itemsMenage = reponseMenage.status === "ok" && reponseMenage.blocks[0]?.kind === "list" ? reponseMenage.blocks[0].items : [];
+
+      if (erreurDocs && itemsMenage.length === 0) {
+        setIsError(true);
+        setBlock({ kind: "text", body: erreurDocs });
+      } else {
+        setIsError(false);
+        setBlock({ kind: "list", items: [...itemsDocs, ...itemsMenage] });
+      }
       setIsLoading(false);
       return;
     }
@@ -256,7 +276,96 @@ export default function SearchBar() {
     router.push(`/documents?${params.toString()}`);
   }
 
+  function ouvrirDansMenage(item: ListItem) {
+    // Pas de lien vers une carte precise (pas d'id stable cote UI Menage
+    // aujourd'hui, voir api/menage.py) - amene au bon ECRAN : Semaine pour
+    // une tache recurrente, Aujourd'hui (ou vivent les to-do) sinon.
+    router.push(item.meta?.categorie === "recurrente" ? "/menage/semaine" : "/menage");
+  }
+
+  // Regroupe les items par categorie (meta.categorie: "todo" | "recurrente"
+  // pour Menage, undefined -> "Documents") - demande de Chris : des
+  // boutons "To do" / "Tâches récurrentes" repliables plutôt qu'une liste
+  // plate, quand une réponse mélange plusieurs catégories. Une seule
+  // catégorie détectée -> liste plate comme avant, pas de repli inutile.
+  // listeCle : identifiant unique de CETTE liste (le bloc principal, ou un
+  // tour de conversation precis) - l'etat plie/deplie vit dans SearchBar
+  // (voir groupesOuverts plus haut), pas ici : ListeItems est redefinie a
+  // chaque rendu de SearchBar (comme CarteItem), donc un useState local
+  // ici perdrait son etat a chaque frappe dans le champ de recherche.
+  function ListeItems({ items, listeCle }: { items: ListItem[]; listeCle: string }) {
+    const groupes = new Map<string, ListItem[]>();
+    for (const item of items) {
+      const categorie = item.meta?.categorie;
+      const cle = categorie === "todo" ? "To do" : categorie === "recurrente" ? "Tâches récurrentes" : "Documents";
+      groupes.set(cle, [...(groupes.get(cle) ?? []), item]);
+    }
+
+    if (items.length === 0) return <p className="text-sm text-foreground/60">Aucun résultat.</p>;
+    if (groupes.size <= 1) {
+      return (
+        <ul className="flex flex-col gap-2">
+          {items.map((item, index) => (
+            <CarteItem key={`${item.id}-${index}`} item={item} index={index} />
+          ))}
+        </ul>
+      );
+    }
+
+    return (
+      <div className="flex flex-col gap-3">
+        {[...groupes.entries()].map(([nom, itemsGroupe]) => {
+          const cleGroupe = `${listeCle}:${nom}`;
+          const estOuvert = groupesOuverts.has(cleGroupe);
+          return (
+            <div key={nom}>
+              <button
+                type="button"
+                onClick={() =>
+                  setGroupesOuverts((precedent) => {
+                    const suivant = new Set(precedent);
+                    if (suivant.has(cleGroupe)) suivant.delete(cleGroupe);
+                    else suivant.add(cleGroupe);
+                    return suivant;
+                  })
+                }
+                className="flex w-full items-center justify-between text-xs font-medium text-foreground/70 hover:text-accent"
+              >
+                <span>
+                  {nom} ({itemsGroupe.length})
+                </span>
+                <span aria-hidden>{estOuvert ? "▲" : "▼"}</span>
+              </button>
+              {estOuvert && (
+                <ul className="mt-2 flex flex-col gap-2">
+                  {itemsGroupe.map((item, index) => (
+                    <CarteItem key={`${item.id}-${index}`} item={item} index={index} />
+                  ))}
+                </ul>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
   function CarteItem({ item, index }: { item: ListItem; index: number }) {
+    if (item.meta?.type === "menage") {
+      const categorie = item.meta?.categorie;
+      return (
+        <li key={`${item.id}-${index}`}>
+          <button
+            onClick={() => ouvrirDansMenage(item)}
+            className="flex w-full items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-left"
+          >
+            <span className="shrink-0">{categorie === "todo" ? "📝" : "🔁"}</span>
+            <span className="flex-1 truncate text-sm text-foreground">{item.label}</span>
+            <span className="shrink-0 text-xs text-accent">Voir dans Ménage ›</span>
+          </button>
+        </li>
+      );
+    }
     if (isTaskItem(item)) {
       return (
         <li key={item.id}>
@@ -408,11 +517,7 @@ export default function SearchBar() {
                             {toursDocumentsOuverts.has(index) ? "▲ Masquer" : "▼ Voir les documents associés"} ({tour.items.length})
                           </button>
                           {toursDocumentsOuverts.has(index) && (
-                            <ul className="flex flex-col gap-2">
-                              {tour.items.map((item, i) => (
-                                <CarteItem key={`${item.id}-${i}`} item={item} index={i} />
-                              ))}
-                            </ul>
+                            <ListeItems items={tour.items} listeCle={`tour-${index}`} />
                           )}
                         </div>
                       )}
@@ -437,12 +542,9 @@ export default function SearchBar() {
         )}
 
         {block && block.kind === "list" && (
-          <ul className="flex max-h-64 flex-col gap-2 overflow-y-auto">
-            {block.items.map((item, index) => (
-              <CarteItem key={`${item.id}-${index}`} item={item} index={index} />
-            ))}
-            {block.items.length === 0 && <p className="text-sm text-foreground/60">Aucun résultat.</p>}
-          </ul>
+          <div className="max-h-64 overflow-y-auto">
+            <ListeItems items={block.items} listeCle="principal" />
+          </div>
         )}
 
         {mode === "motcle" && dernierMotCle && !contenuDejaCherche && (
