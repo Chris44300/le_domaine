@@ -64,10 +64,21 @@ export default async function RoadmapPage() {
   const member = await requireCurrentMember();
   const supabase = await createClient();
 
-  const { data: suggestions } = await supabase
-    .from("suggestions")
-    .select("id, texte, statut, created_at, auteur:members(display_name)")
-    .order("created_at", { ascending: false });
+  // Deux requetes separees plutot qu'une jointure embarquee
+  // (auteur:members(...)) : cette derniere compilait bien en dev mais
+  // faisait echouer le build de production (`next build`, type-check
+  // strict) - database.types.ts n'a pas de metadonnees "Relationships"
+  // decrivant la cle etrangere suggestions.auteur_member_id -> members.id,
+  // donc le type genere pour la jointure est un SelectQueryError. Plus
+  // simple et plus sur d'assembler les deux cote serveur ici.
+  const [{ data: suggestions }, { data: membres }] = await Promise.all([
+    supabase
+      .from("suggestions")
+      .select("id, texte, statut, created_at, auteur_member_id")
+      .order("created_at", { ascending: false }),
+    supabase.from("members").select("id, display_name"),
+  ]);
+  const nomParMembre = new Map((membres ?? []).map((m) => [m.id, m.display_name]));
 
   return (
     <div className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-8 px-6 pb-40 pt-16">
@@ -96,18 +107,13 @@ export default async function RoadmapPage() {
       </section>
 
       <SuggestionsSection
-        // any: le typage genere par la requete Supabase (auteur:members(...))
-        // deduit un tableau pour la relation, alors qu'un seul membre est
-        // toujours attendu ici (auteur_member_id n'est pas multi-valeurs).
-        suggestionsInitiales={
-          (suggestions ?? []).map((s) => ({
-            id: s.id,
-            texte: s.texte,
-            statut: s.statut,
-            createdAt: s.created_at,
-            auteur: Array.isArray(s.auteur) ? (s.auteur[0]?.display_name ?? null) : ((s.auteur as { display_name: string } | null)?.display_name ?? null),
-          }))
-        }
+        suggestionsInitiales={(suggestions ?? []).map((s) => ({
+          id: s.id,
+          texte: s.texte,
+          statut: s.statut,
+          createdAt: s.created_at,
+          auteur: s.auteur_member_id ? (nomParMembre.get(s.auteur_member_id) ?? null) : null,
+        }))}
         householdId={member.householdId}
         currentMemberId={member.id}
       />
