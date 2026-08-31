@@ -66,8 +66,31 @@ cette liste si l'ordre change plutôt que de la laisser devenir fausse.
          vraies données (13 to-do, tâches du jour), écriture réelle
          confirmée (to-do cochée puis annulée par Chris), aucune
          régression sur Tâches/Documents.
-       - [ ] **B2 — Semaine**, **B3 — Historique**, **B4 — Réglages** :
-         pas commencées.
+       - [x] **B2 — Semaine** (`/menage/semaine`) : navigation semaine
+         précédente/suivante, occurrences projetées ("prévision"),
+         "avancer à cette semaine". Vérifié en conditions réelles.
+       - [x] **B3 — Historique** (`/menage/historique`) : journal
+         (100 dernières tâches faites) et statistiques (7/30/90 jours,
+         qui fait quoi, par catégorie, tâches les plus reportées).
+         Vérifié en conditions réelles.
+       - [x] **B4 — Réglages** (`/menage/parametres`) : gestion des
+         personnes/catégories/tâches (ajouter, archiver, modifier,
+         supprimer), Zone dangereuse (réinitialiser tout l'historique
+         du foyer). Vérifié en conditions réelles (affichage et
+         données réelles seulement — jamais cliqué "Réinitialiser
+         l'historique" ni testé les formulaires d'ajout/suppression en
+         automatique, irréversible ou structurel). **Notifications
+         push volontairement absentes** : elles dépendent d'un service
+         worker propre à l'origine du site (celui de Ménage
+         aujourd'hui) — pas construit pour Domaine, décision à prendre
+         séparément si besoin. Toujours actives sur l'app Ménage
+         d'origine en attendant, message explicite affiché à la place
+         dans Domaine.
+       - La nav du bas de Ménage est maintenant 100% interne à Domaine
+         (Aujourd'hui/Semaine/Historique/Réglages) — plus de lien
+         externe. Les 4 écrans principaux de Ménage sont donc tous
+         portés ; le site Ménage externe reste la seule référence pour
+         les notifications push.
      - [ ] **C — Permissions par personne** : qui voit quelle
        application. Portée confirmée par Chris le 2026-08-30 : **Mel
        a accès à Documents + Ménage + Chat, pas au reste** (pas de
