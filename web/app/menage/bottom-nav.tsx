@@ -5,13 +5,13 @@ import { usePathname } from "next/navigation";
 
 const MENAGE_SITE = "https://application-taches-menageres.vercel.app";
 
-// Semaine/Historique/Réglages pas encore portés dans Domaine (étapes B2 à
-// B4, voir Le Domaine/PLAN.md) - ils pointent vers le site Ménage existant
-// en attendant plutôt que vers une page 404 locale. À retirer au fur et à
+// Historique/Réglages pas encore portés dans Domaine (étapes B3-B4, voir
+// Le Domaine/PLAN.md) - ils pointent vers le site Ménage existant en
+// attendant plutôt que vers une page 404 locale. À retirer au fur et à
 // mesure que chaque écran est porté.
 const ITEMS = [
   { href: "/menage", label: "Aujourd'hui", icon: "☀️", external: false },
-  { href: `${MENAGE_SITE}/semaine`, label: "Semaine", icon: "📅", external: true },
+  { href: "/menage/semaine", label: "Semaine", icon: "📅", external: false },
   { href: `${MENAGE_SITE}/historique`, label: "Historique", icon: "🕓", external: true },
   { href: `${MENAGE_SITE}/parametres`, label: "Réglages", icon: "⚙️", external: true },
 ] as const;
@@ -35,7 +35,11 @@ export function BottomNav() {
     <nav className="sticky bottom-0 z-10 border-t border-border bg-surface/95 shadow-nav backdrop-blur pb-[env(safe-area-inset-bottom)]">
       <ul className="mx-auto flex max-w-lg items-stretch justify-around">
         {ITEMS.map((item) => {
-          const isActive = item.href === "/menage" ? pathname === "/menage" : false;
+          const isActive = item.external
+            ? false
+            : item.href === "/menage"
+              ? pathname === "/menage"
+              : pathname.startsWith(item.href);
           return (
             <li key={item.href} className="flex-1">
               <Link
