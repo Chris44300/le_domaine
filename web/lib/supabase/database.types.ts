@@ -39,6 +39,8 @@ export interface Database {
           display_name: string;
           is_active: boolean;
           created_at: string;
+          /** Applications du Domaine visibles par cette personne. null = accès complet. */
+          apps_autorises: string[] | null;
         };
         Insert: {
           id?: string;
@@ -48,6 +50,7 @@ export interface Database {
           display_name: string;
           is_active?: boolean;
           created_at?: string;
+          apps_autorises?: string[] | null;
         };
         Update: Partial<Database["public"]["Tables"]["members"]["Insert"]>;
         Relationships: [];

@@ -1,12 +1,16 @@
 import Link from "next/link";
+import { aAcces, requireCurrentMember } from "@/lib/current-member";
 
 const tiles = [
-  { href: "/tasks", icon: "✅", label: "Tâches" },
-  { href: "/documents", icon: "📁", label: "Documents" },
-  { href: "/menage", icon: "🧺", label: "Ménage" },
+  { href: "/tasks", app: "tasks", icon: "✅", label: "Tâches" },
+  { href: "/documents", app: "documents", icon: "📁", label: "Documents" },
+  { href: "/menage", app: "menage", icon: "🧺", label: "Ménage" },
 ];
 
-export default function Home() {
+export default async function Home() {
+  const member = await requireCurrentMember();
+  const tilesVisibles = tiles.filter((tile) => aAcces(member, tile.app));
+
   return (
     <div className="flex flex-1 flex-col items-center px-6 pb-40 pt-16">
       <h1 className="text-2xl font-semibold tracking-tight text-foreground">
@@ -14,7 +18,7 @@ export default function Home() {
       </h1>
 
       <div className="mt-12 grid w-full max-w-xl grid-cols-2 gap-4 sm:grid-cols-3">
-        {tiles.map((tile) => (
+        {tilesVisibles.map((tile) => (
           <Link
             key={tile.href}
             href={tile.href}

@@ -93,12 +93,25 @@ cette liste si l'ordre change plutôt que de la laisser devenir fausse.
          les notifications push. `loading.tsx` (écran de chargement)
          également porté - étape B considérée complète pour tout ce
          qui n'est pas notifications.
-     - [ ] **C — Permissions par personne** : qui voit quelle
-       application. Portée confirmée par Chris le 2026-08-30 : **Mel
-       a accès à Documents + Ménage + Chat, pas au reste** (pas de
-       Tâches Nigel, pas de future pièce Programmation/admin) ; Chris
-       garde accès à tout. Sert aussi de socle au chantier réseau
-       multi-utilisateurs (item 4). Pas commencé.
+     - **C — Permissions par personne** : qui voit quelle application.
+       Portée confirmée par Chris le 2026-08-30 : **Mel a accès à
+       Documents + Ménage + Chat, pas au reste** (pas de Tâches Nigel,
+       pas de future pièce Programmation/admin) ; Chris garde accès à
+       tout. Sert aussi de socle au chantier réseau multi-utilisateurs
+       (item 4). Découpée en deux :
+       - [x] **C1 — Accès aux pages** (Domaine, frontend) : nouvelle
+         colonne `members.apps_autorises` (`text[]`, `null` = accès
+         complet — voir `supabase/migration_008_domaine_permissions.sql`
+         dans le dépôt Ménage) ; `proxy.ts` bloque/redirige vers `/`
+         si la page demandée n'est pas dans la liste de la personne ;
+         la page d'accueil masque les tuiles non autorisées. Vérifié
+         en conditions réelles pour Chris (accès complet, les 3
+         tuiles, `/tasks` accessible) - le cas restreint de Mel reste
+         à vérifier par elle-même (pas d'accès à sa boîte mail pour
+         tester à sa place).
+       - [ ] **C2 — Accès aux outils du chat** (Nigel, backend Python) :
+         filtrer les outils exposés au LLM selon qui pose la question
+         (`assistant/agent_tools.py`/`registry.py`) - pas commencé.
 3. **Pièce Reporting** (Phase 7) — un peu après Ménage.
 4. **Réseau multi-utilisateurs + permissions + "Programmation"** (chat
    admin capable de modifier le code, avec snapshots/retour en

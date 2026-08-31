@@ -6,6 +6,13 @@ export interface CurrentMember {
   householdId: string;
   displayName: string;
   email: string | null;
+  /** Applications du Domaine visibles par cette personne. null = accès complet. */
+  appsAutorises: string[] | null;
+}
+
+/** true si cette personne a le droit de voir cette application (null = accès complet). */
+export function aAcces(member: Pick<CurrentMember, "appsAutorises">, app: string): boolean {
+  return member.appsAutorises === null || member.appsAutorises.includes(app);
 }
 
 /**
@@ -28,7 +35,7 @@ export async function requireCurrentMember(): Promise<CurrentMember> {
 
   const { data: member } = await supabase
     .from("members")
-    .select("id, household_id, display_name, email")
+    .select("id, household_id, display_name, email, apps_autorises")
     .eq("auth_user_id", user.id)
     .eq("is_active", true)
     .maybeSingle();
@@ -42,5 +49,6 @@ export async function requireCurrentMember(): Promise<CurrentMember> {
     householdId: member.household_id,
     displayName: member.display_name,
     email: member.email,
+    appsAutorises: member.apps_autorises,
   };
 }
