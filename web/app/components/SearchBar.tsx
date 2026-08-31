@@ -1,9 +1,10 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Spinner from "./Spinner";
 import { callApi, firstErrorMessage, type Block, type ListItem } from "../lib/api";
+import { createClient } from "@/lib/supabase/client";
 
 function isTaskItem(item: ListItem) {
   return item.done !== undefined;
@@ -81,6 +82,35 @@ export default function SearchBar() {
   // - clé composite "listeCle:nomDuGroupe" (voir ListeItems plus bas), levé
   // ici plutôt que dans ListeItems pour ne pas perdre l'état à chaque frappe.
   const [groupesOuverts, setGroupesOuverts] = useState<Set<string>>(new Set());
+  // Chantier "Ménage réellement intégré", étape C2 (voir PLAN.md) : quels
+  // outils le chat peut exposer au LLM pour LA PERSONNE CONNECTÉE (Mel ne
+  // doit pas voir les Tâches perso de Chris via le chat, même si elle
+  // devine le nom de l'outil). Tableau vide par défaut (accès restreint
+  // aux utilitaires génériques seulement) tant que non chargé - jamais
+  // `null` en état initial, qui côté serveur (api/agent.py) signifie
+  // "accès complet" : on préfère un flash de SOUS-accès le temps du
+  // premier chargement à un flash de SUR-accès.
+  const [appsAutorisees, setAppsAutorisees] = useState<string[] | null>([]);
+
+  useEffect(() => {
+    let annule = false;
+    (async () => {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user || annule) return;
+      const { data: membre } = await supabase
+        .from("members")
+        .select("apps_autorises")
+        .eq("auth_user_id", user.id)
+        .maybeSingle();
+      if (!annule && membre) setAppsAutorisees(membre.apps_autorises);
+    })();
+    return () => {
+      annule = true;
+    };
+  }, []);
 
   function toggleDocumentsAssocies(index: number) {
     setToursDocumentsOuverts((precedent) => {
@@ -199,7 +229,11 @@ export default function SearchBar() {
     setHistoriqueTexte((h) => [...h, { role: "user", content: texte }]);
     setChatReduit(false);
 
-    const reponse = await callApi("/agent/ask", { message: texte, historique: historiqueEnvoye });
+    const reponse = await callApi("/agent/ask", {
+      message: texte,
+      historique: historiqueEnvoye,
+      apps_autorises: appsAutorisees,
+    });
     if (requestTokenRef.current !== token) return;
 
     const erreur = firstErrorMessage(reponse);

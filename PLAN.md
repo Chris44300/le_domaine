@@ -109,9 +109,16 @@ cette liste si l'ordre change plutôt que de la laisser devenir fausse.
          tuiles, `/tasks` accessible) - le cas restreint de Mel reste
          à vérifier par elle-même (pas d'accès à sa boîte mail pour
          tester à sa place).
-       - [ ] **C2 — Accès aux outils du chat** (Nigel, backend Python) :
-         filtrer les outils exposés au LLM selon qui pose la question
-         (`assistant/agent_tools.py`/`registry.py`) - pas commencé.
+       - [x] **C2 — Accès aux outils du chat** (Nigel, backend Python) :
+         nouveau `assistant/llm_router.py::outils_pour_permissions` -
+         traduit `apps_autorises` (envoyé par `SearchBar.tsx`, récupéré
+         côté client depuis `members`) en sous-ensemble d'outils exposés
+         au LLM. Mel ne peut plus accéder aux Tâches perso de Chris via
+         le chat, même en devinant/tapant le nom de l'outil. Vérifié en
+         conditions réelles pour Chris (accès complet, réponse correcte
+         avec ses vraies tâches) et par 10 tests automatisés pour le cas
+         restreint (pas de compte Mel disponible pour tester à sa
+         place).
      - [x] **D — Ménage interactif dans le chat et le mode Mot-clé**
        (demande de Chris le 2026-08-31 : "comme avec document,
        interagir"). Nouvel outil `lister_taches_menage_semaine` (Nigel)

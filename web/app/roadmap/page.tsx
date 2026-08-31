@@ -17,7 +17,7 @@ const VISION: { titre: string; statut: "fait" | "en_cours" | "a_venir"; detail: 
     titre: "Ménage vraiment intégré à Domaine",
     statut: "en_cours",
     detail:
-      "Écrans, chat et recherche par mot-clé faits. Reste : cocher/reporter une tâche directement depuis le chat, et limiter les outils du chat selon qui pose la question (Mel ne doit pas gérer les Tâches perso de Chris).",
+      "Écrans, chat, recherche par mot-clé, et permissions du chat par personne faits. Reste : cocher/reporter une tâche directement depuis le chat (écriture, pas encore construite).",
   },
   {
     titre: "Mini PC + NAS dédiés",
