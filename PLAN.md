@@ -1428,21 +1428,57 @@ terminée, en suivant [`GABARIT_NOUVELLE_PIECE.md`](GABARIT_NOUVELLE_PIECE.md)
 (écrit à cette occasion, § Phase 8.1) — même méthode que le portage de
 Ménage.
 
-- [ ] 7.1 Définir le contrat d'un "reporting programmé" : source(s),
-      fréquence, critères, format de sortie.
-- [ ] 7.2 🎓 Scheduler : réutiliser le pattern Vercel Cron déjà utilisé par
-      Ménage (notifications du matin) si le reporting ne dépend que de
-      services externes ; sinon, un scheduler côté mini-PC si des données
-      locales sont impliquées.
-- [ ] 7.3 Premier reporting concret — recommandé : le plus simple des
-      exemples cités (veille marché data ou crypto), volontairement choisi
-      parce qu'il ne dépend PAS de Gmail (une dépendance externe en moins
-      pour le premier essai).
-- [ ] 7.4 Interface de gestion des reportings dans le Domaine (créer,
-      modifier, consulter l'historique).
-- [ ] 7.5 Reporting recherche d'emploi (nécessite l'intégration Gmail —
-      volontairement après le premier, pour isoler la complexité Gmail
-      d'OAuth de la complexité "reporting" elle-même).
+**Recadrage du contrat (2026-09-01, session Reporting) :** ce n'est PAS
+un reporting unique codé en dur — c'est un **moteur générique de
+reporting programmable**, piloté par une interface. Deux écrans :
+"Créer" (formulaire : sources, fréquence, critères à extraire, mode
+d'envoi, destinataires) et "Suivre" (tableau de bord : historique
+téléchargeable des dernières éditions, critères modifiables,
+destinataires modifiables — membre du Domaine existant ou email externe
+invité). Le moteur va chercher les sources (page web scrapée, flux RSS,
+ou inscription à une newsletter dédiée — les trois prévus, dans cet
+ordre de complexité croissante), condense via un LLM selon les critères
+définis, et envoie un email soigné. Détail du modèle de données et de
+l'ordre de construction : voir `PLAN.md` du dépôt Reporting. Décisions
+d'architecture actées dans cette même session :
+  - Branché **dès maintenant** sur le même projet Supabase que Le
+    Domaine/Ménage (pas un Supabase séparé "en attendant l'intégration")
+    — nécessaire pour proposer les membres du Domaine comme destinataires
+    sans dupliquer de données à migrer plus tard.
+  - Authentification : Supabase Auth du Domaine réutilisée dès le début
+    (code à 6 chiffres), pas d'accès "protégé Domaine générique" — il y a
+    une vraie notion d'utilisateur (créateur, destinataires).
+  - LLM de résumé : démarre avec la clé OpenAI déjà disponible chez Chris
+    (`Projet - Assistant IA (Nigel)/assistant-ia-personnel/.env`), pensé
+    dès le départ derrière une seule fonction d'abstraction pour basculer
+    vers l'API Claude sans réécriture, une fois la clé Claude en poche.
+  - Scheduler : cron Vercel **horaire** générique (une route, qui calcule
+    l'heure réelle à Paris de façon DST-safe comme Ménage, et déclenche
+    tout reporting actif dont c'est l'heure/le jour) plutôt qu'un cron
+    dédié par reporting.
+  - Chris envisage à terme de rapatrier Supabase sur son mini PC + NAS
+    (voir mémoire *infra mini PC + NAS*) — sans impact sur la construction
+    actuelle, à garder en tête pour une migration future.
+
+- [ ] 7.1 Schéma Supabase : tables `reportings`, `reporting_sources`,
+      `reporting_recipients`, `reporting_editions` (RLS par foyer via
+      `auth_household_ids()`, même convention que Ménage).
+- [ ] 7.2 Moteur (fetch source → résumé LLM → email → archive),
+      testable indépendamment de toute UI.
+- [ ] 7.3 🎓 Scheduler : cron Vercel horaire générique, DST-safe (voir
+      décision ci-dessus).
+- [ ] 7.4 Écran "Créer" un reporting.
+- [ ] 7.5 Écran "Suivre" les reportings (historique, édition des
+      critères/destinataires).
+- [ ] 7.6 Type de source "inscription newsletter" (nécessite une adresse
+      email dédiée à créer + parsing des emails reçus) — après que
+      scraping/RSS soient stables.
+- [ ] 7.7 Premier reporting réel configuré via l'interface (ex. veille
+      marché) — preuve que le moteur générique fonctionne de bout en
+      bout, plus un exemple câblé en dur.
+- [ ] 7.8 Reporting recherche d'emploi (nécessite l'intégration Gmail —
+      volontairement après, pour isoler la complexité Gmail/OAuth de la
+      complexité "reporting" elle-même).
 
 **Sortie de la Phase 7 :** un domaine entièrement nouveau construit avec
 la même méthode que les précédents — preuve que le gabarit tient au-delà
@@ -1632,3 +1668,11 @@ années sans devenir un fardeau.
   Phase 8.1), mis à jour `README.md` (pointeur vers ce gabarit, état
   actuel, liste des dépôts liés) et ce plan (8.1, Phase 7, feuille de
   route). Rien de fonctionnel changé côté application.
+- 2026-09-01 (suite, session Reporting) : recadrage du contrat Phase 7
+  après discussion avec Chris — ce n'est pas un reporting unique câblé en
+  dur mais un moteur générique de reporting programmable (voir Phase 7
+  ci-dessus pour le détail complet : deux écrans Créer/Suivre, moteur
+  fetch→LLM→email→archive, trois types de source dans l'ordre
+  scraping/RSS puis newsletter, Supabase et auth du Domaine réutilisés
+  dès le départ). Rien de fonctionnel construit encore à ce stade — mise
+  à jour de contrat uniquement.
