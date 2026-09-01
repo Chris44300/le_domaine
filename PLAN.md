@@ -151,7 +151,10 @@ cette liste si l'ordre change plutôt que de la laisser devenir fausse.
        sombre reste ambré. Nouvelle page `/parametres` (bouton ⚙️ sur
        l'accueil) : choix Système/Clair/Sombre, appliqué via
        `data-theme` sur `<html>`, persisté en `localStorage`.
-3. **Pièce Reporting** (Phase 7) — un peu après Ménage.
+3. **Pièce Reporting** (Phase 7) — un peu après Ménage. Décidé le
+   2026-09-01 : construite dans son propre dépôt Git séparé, intégrée
+   ici seulement une fois terminée (voir Phase 7 et
+   `GABARIT_NOUVELLE_PIECE.md`).
 4. **Réseau multi-utilisateurs + permissions + "Programmation"** (chat
    admin capable de modifier le code, avec snapshots/retour en
    arrière) — voir la discussion du 2026-08-30 pour le découpage en
@@ -1417,6 +1420,14 @@ compris derrière.
 **Objectif :** le premier domaine entièrement nouveau (rien à réutiliser
 de Nigel ici, contrairement aux phases précédentes).
 
+**Décision du 2026-09-01 (Chris) :** construite dans son **propre dépôt
+Git séparé**, pas directement dans `Le Domaine` ni dans Nigel — cette
+conversation étant déjà très longue, mieux vaut repartir d'une session
+fraîche pour Reporting lui-même. Intégrée ici seulement une fois
+terminée, en suivant [`GABARIT_NOUVELLE_PIECE.md`](GABARIT_NOUVELLE_PIECE.md)
+(écrit à cette occasion, § Phase 8.1) — même méthode que le portage de
+Ménage.
+
 - [ ] 7.1 Définir le contrat d'un "reporting programmé" : source(s),
       fréquence, critères, format de sortie.
 - [ ] 7.2 🎓 Scheduler : réutiliser le pattern Vercel Cron déjà utilisé par
@@ -1443,9 +1454,14 @@ de ce qui existait déjà chez Nigel.
 
 **Objectif :** ne pas repartir de zéro à chaque nouvelle pièce.
 
-- [ ] 8.1 Une fois 2-3 pièces réelles construites, documenter a posteriori
+- [x] 8.1 Une fois 2-3 pièces réelles construites, documenter a posteriori
       le "gabarit d'une nouvelle pièce" (checklist : contrat API, tuile
-      d'accueil, gestion des erreurs, où vit la donnée).
+      d'accueil, gestion des erreurs, où vit la donnée). Fait le
+      2026-09-01, après Tâches/Documents/Ménage/Road Map : voir
+      [`GABARIT_NOUVELLE_PIECE.md`](GABARIT_NOUVELLE_PIECE.md) — écrit en
+      prévision de Reporting, développé dans son propre dépôt séparé
+      (décision de Chris, 2026-09-01, voir Phase 7 ci-dessous) puis
+      intégré ici en suivant ce gabarit, exactement comme Ménage.
 - [ ] 8.2 Budget/patrimoine, cave à vin, réservation restaurant, etc. — à
       la demande, une fois ce gabarit stable. Pas de plan détaillé pour
       elles avant que leur tour arrive réellement.
@@ -1607,3 +1623,12 @@ années sans devenir un fardeau.
   chargeait jamais `.env` (voir 3bis.2septies). Pas besoin d'action
   supplémentaire de Chris pour l'OCR une fois ce correctif déployé -
   juste redémarrer l'API.
+- 2026-09-01 : Chris décide de construire la pièce Reporting dans son
+  propre dépôt Git séparé (cette conversation étant déjà très longue) et
+  demande de préparer la documentation du Domaine pour qu'une session
+  Claude neuve puisse reprendre le fil rien qu'à partir des liens des
+  deux dépôts. Écrit `GABARIT_NOUVELLE_PIECE.md` (checklist d'intégration
+  d'une nouvelle pièce, extraite a posteriori du portage réel de Ménage —
+  Phase 8.1), mis à jour `README.md` (pointeur vers ce gabarit, état
+  actuel, liste des dépôts liés) et ce plan (8.1, Phase 7, feuille de
+  route). Rien de fonctionnel changé côté application.
